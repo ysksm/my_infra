@@ -1,0 +1,28 @@
+services:
+  gitlab:
+    image: gitlab/gitlab-ce:latest
+    container_name: gitlab
+    restart: always
+    hostname: 127.0.0.1
+    environment:
+      GITLAB_OMNIBUS_CONFIG: |
+        external_url 'http://127.0.0.1'
+        gitlab_rails['gitlab_shell_ssh_port'] = 2222
+        # メモリ使用量を抑える設定（必要に応じて調整）
+        puma['worker_processes'] = 2
+        sidekiq['concurrency'] = 5
+        prometheus_monitoring['enable'] = false
+    ports:
+      - "8080:80"
+      - "8443:443"
+      - "2222:22"
+    volumes:
+      - ./data/config:/etc/gitlab
+      - ./data/logs:/var/log/gitlab
+      - ./data/data:/var/opt/gitlab
+    shm_size: 256m
+
+volumes:
+  gitlab_config:
+  gitlab_logs:
+  gitlab_data:
