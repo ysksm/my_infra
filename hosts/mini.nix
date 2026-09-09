@@ -1,5 +1,5 @@
 # ホスト固有の設定 (darwin-rebuild switch --flake .#mini)
-{ ... }:
+{ pkgs, ... }:
 {
   nixpkgs.hostPlatform = "aarch64-darwin";
 
@@ -11,6 +11,12 @@
 
   # このホストで OrbStack を有効にする
   my-infra.orbstack.enable = true;
+
+  # 開発ツール。nix で入れると /run/current-system/sw/bin に配置され PATH に乗る。
+  # (nix-darwin は macOS の path_helper を呼ばないため、公式 .pkg で
+  #  /usr/local/go に入れても /etc/paths.d/go が PATH に反映されない)
+  # go は 1.26 系を指すため、明示的に 1.27 系を指定する。
+  environment.systemPackages = [ pkgs.go_1_27 ];
 
   # nix-darwin が管理する状態のバージョン。初回適用後は変更しない。
   system.stateVersion = 6;

@@ -13,6 +13,7 @@ macOS (Apple Silicon) 向けの Nix によるインストール定義。
 | `gitlab/docker-compose.yaml` | セルフホストする GitLab CE の compose 定義 |
 | `docs/darwin-rebuild.html` | `darwin-rebuild` コマンドの解説スライド (ブラウザで開く) |
 | `docs/orbstack-startup.html` | 適用後に OrbStack を動かすまでの手順スライド |
+| `docs/go-path.html` | .pkg で入れた Go が `command not found` になった原因と対処のスライド |
 
 OrbStack は nixpkgs の `orbstack` パッケージ (unfree、Apple Silicon 専用) を使用する。
 インストールされるもの:
@@ -88,6 +89,12 @@ nix flake update    # nixpkgs を更新して OrbStack のバージョンを上�
   これが無いと activation が `error: Determinate detected, aborting activation` で
   失敗する。代わりに `nix.*` オプション (`nix.settings`、Linux ビルダー等) は
   使えなくなり、Nix 自体の設定は Determinate 側 (`/etc/nix/nix.custom.conf`) で行う。
+- nix-darwin は macOS 標準の `/etc/zprofile` を差し替え、`path_helper` を呼ばなくなる。
+  そのため公式 .pkg インストーラが `/etc/paths.d/` に置いたパス (Go、Wireshark、
+  VMware Fusion など) は PATH に反映されない。CLI ツールは `.pkg` ではなく
+  `environment.systemPackages` で入れること。Go は `hosts/mini.nix` で
+  `pkgs.go_1_27` を指定している (`pkgs.go` は 1 世代前を指すため系列を明示)。
+  経緯は `docs/go-path.html` を参照。
 
 ## サービスのランタイムデータ
 
