@@ -1,0 +1,872 @@
+<title>OrbStack が動くまで</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
+
+<style>
+  :root {
+    --paper:     #E7ECF2;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F4F8;
+    --ink:       #131A24;
+    --ink-2:     #414E5C;
+    --muted:     #6D7A88;
+    --line:      #CFD8E2;
+    --line-soft: #E0E6ED;
+    --accent:    #1F6FB2;
+
+    --ok:        #17795A;
+    --now:       #B26206;
+    --todo:      #8894A1;
+
+    --term-bg:   #101820;
+    --term-fg:   #D7E0EA;
+    --term-dim:  #7C8B9B;
+    --term-line: #24313E;
+    --term-ok:   #6FD09B;
+    --term-bad:  #FF8A7A;
+    --term-hl:   #F0C169;
+
+    --p-apple:    #5C6874;
+    --p-det:      #5B44D9;
+    --p-nixpkgs:  #1F6FB2;
+    --p-darwin:   #0B8476;
+    --p-orb:      #BF5F10;
+    --p-you:      #A83766;
+
+    --r-sm: 4px;
+    --r-md: 8px;
+
+    --font-jp: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0F151C;
+      --surface:   #161E27;
+      --surface-2: #1B242E;
+      --ink:       #E6ECF3;
+      --ink-2:     #B4C0CD;
+      --muted:     #8493A2;
+      --line:      #2A3642;
+      --line-soft: #222D38;
+      --accent:    #6BB3E8;
+
+      --ok:        #56C98D;
+      --now:       #F0B25C;
+      --todo:      #71808E;
+
+      --term-bg:   #070C11;
+      --term-line: #1B252F;
+
+      --p-apple:    #9AA6B2;
+      --p-det:      #9C8BFF;
+      --p-nixpkgs:  #6BB3E8;
+      --p-darwin:   #3FC7B4;
+      --p-orb:      #F0A055;
+      --p-you:      #EC7BA8;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #0F151C;
+    --surface:   #161E27;
+    --surface-2: #1B242E;
+    --ink:       #E6ECF3;
+    --ink-2:     #B4C0CD;
+    --muted:     #8493A2;
+    --line:      #2A3642;
+    --line-soft: #222D38;
+    --accent:    #6BB3E8;
+
+    --ok:        #56C98D;
+    --now:       #F0B25C;
+    --todo:      #71808E;
+
+    --term-bg:   #070C11;
+    --term-line: #1B252F;
+
+    --p-apple:    #9AA6B2;
+    --p-det:      #9C8BFF;
+    --p-nixpkgs:  #6BB3E8;
+    --p-darwin:   #3FC7B4;
+    --p-orb:      #F0A055;
+    --p-you:      #EC7BA8;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-jp);
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  [data-who]           { --c: var(--p-apple); }
+  [data-who="det"]     { --c: var(--p-det); }
+  [data-who="nixpkgs"] { --c: var(--p-nixpkgs); }
+  [data-who="darwin"]  { --c: var(--p-darwin); }
+  [data-who="orb"]     { --c: var(--p-orb); }
+  [data-who="you"]     { --c: var(--p-you); }
+
+  /* ---------- deck chrome ---------- */
+
+  .deck {
+    min-height: 100svh;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .deck-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px clamp(16px, 4vw, 40px);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .brand {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .deck-top .sep { width: 1px; height: 14px; background: var(--line); }
+  .deck-top .name { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+
+  .rail { display: flex; gap: 4px; margin-left: auto; padding: 0; list-style: none; }
+
+  .rail button {
+    width: 16px; height: 6px; padding: 0; border: 0;
+    border-radius: 999px; background: var(--line); cursor: pointer;
+    transition: background .18s ease, width .18s ease;
+  }
+
+  .rail button:hover { background: var(--muted); }
+  .rail button[aria-current="true"] { background: var(--accent); width: 28px; }
+
+  .stage { overflow-y: auto; padding: clamp(22px, 3.5vw, 48px) clamp(16px, 4vw, 40px); }
+
+  .slide { display: none; }
+
+  .slide.is-active {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 2.4vw, 28px);
+    width: 100%;
+    max-width: 1060px;
+    margin-inline: auto;
+    animation: rise .32s cubic-bezier(.2, .7, .3, 1);
+  }
+
+  @keyframes rise {
+    from { opacity: .55; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide.is-active { animation: none; }
+    .rail button { transition: none; }
+  }
+
+  .deck-nav {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px clamp(16px, 4vw, 40px);
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .deck-nav button {
+    font-family: var(--font-mono); font-size: 13px; padding: 6px 14px;
+    color: var(--ink-2); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: var(--r-sm); cursor: pointer;
+  }
+
+  .deck-nav button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .deck-nav button:disabled { opacity: .38; cursor: default; }
+
+  .counter {
+    font-family: var(--font-mono); font-size: 13px;
+    font-variant-numeric: tabular-nums; color: var(--muted);
+  }
+
+  .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- typography ---------- */
+
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0;
+  }
+
+  h1 {
+    font-size: clamp(30px, 5vw, 52px); font-weight: 900; line-height: 1.2;
+    letter-spacing: -.01em; text-wrap: balance; margin: 0;
+  }
+
+  h2 {
+    font-size: clamp(21px, 2.8vw, 30px); font-weight: 700;
+    line-height: 1.35; text-wrap: balance; margin: 0;
+  }
+
+  h3 { font-size: 15px; font-weight: 700; margin: 0; }
+
+  p { margin: 0; max-width: 68ch; }
+
+  .lead { font-size: clamp(15px, 1.5vw, 17px); color: var(--ink-2); }
+
+  .slide-head {
+    display: flex; flex-direction: column; gap: 6px;
+    padding-bottom: 14px; border-bottom: 2px solid var(--ink);
+  }
+
+  strong { font-weight: 700; }
+  code { font-family: var(--font-mono); font-size: .93em; }
+
+  /* ---------- the arc: where you are right now ---------- */
+
+  .arc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: stretch;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  .arc li {
+    --s: var(--todo);
+    flex: 1 1 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--s);
+    border-radius: 0 0 var(--r-sm) var(--r-sm);
+  }
+
+  .arc li[data-state="done"] { --s: var(--ok); }
+  .arc li[data-state="now"]  { --s: var(--now); background: color-mix(in srgb, var(--now) 9%, var(--surface)); }
+
+  .arc .mark {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    color: var(--s);
+  }
+
+  .arc .step { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .arc .sub  { font-size: 12px; color: var(--muted); }
+
+  /* ---------- cards ---------- */
+
+  .grid { display: grid; gap: 12px; }
+  .cols-2 { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+  .cols-3 { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+
+  .card {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 16px 18px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--r-md);
+  }
+
+  .card p { font-size: 14px; color: var(--ink-2); }
+
+  .card .sig {
+    font-family: var(--font-mono); font-size: 15px; font-weight: 600;
+    color: var(--ink); word-break: break-all;
+  }
+
+  .who {
+    display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .04em; padding: 2px 8px; color: var(--c);
+    background: color-mix(in srgb, var(--c) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 34%, transparent);
+    border-radius: 999px; white-space: nowrap;
+  }
+
+  .who::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+
+  /* ---------- terminal ---------- */
+
+  .term {
+    font-family: var(--font-mono);
+    font-size: clamp(12px, 1.15vw, 13.5px);
+    line-height: 1.8; color: var(--term-fg); background: var(--term-bg);
+    border: 1px solid var(--term-line); border-radius: var(--r-md);
+    padding: 16px 18px; margin: 0; overflow-x: auto; white-space: pre;
+  }
+
+  .term .dollar { color: var(--term-dim); user-select: none; }
+  .term .cmt { color: var(--term-dim); }
+  .term .ok  { color: var(--term-ok); }
+  .term .bad { color: var(--term-bad); }
+  .term .hl  { color: var(--term-hl); }
+
+  /* the remedy block: a terminal that is an instruction, not a transcript */
+  .fix {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--ok);
+    border-left: 4px solid var(--ok);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+  }
+
+  .fix .tag {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ok);
+  }
+
+  .fix .run {
+    font-family: var(--font-mono);
+    font-size: clamp(14px, 1.7vw, 19px);
+    font-weight: 500;
+    color: var(--term-fg);
+    background: var(--term-bg);
+    border-radius: var(--r-sm);
+    padding: 12px 16px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .fix .run .dollar { color: var(--term-dim); user-select: none; margin-right: 8px; }
+  .fix p { font-size: 14px; color: var(--ink-2); }
+
+  /* ---------- table ---------- */
+
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+  th {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .1em; text-transform: uppercase; text-align: left;
+    color: var(--muted); padding: 0 14px 8px 0;
+    border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 14px 11px 0; border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+
+  td:first-child { color: var(--ink); }
+  tr:last-child td { border-bottom: 0; }
+
+  .note {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 14px 18px; background: var(--surface-2);
+    border-left: 3px solid var(--accent); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  }
+
+  .note .tag {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--accent);
+  }
+
+  .note p { font-size: 14px; }
+
+  .bullets { margin: 0; padding-left: 1.15em; display: flex; flex-direction: column; gap: 7px; }
+  .bullets li { font-size: 14.5px; color: var(--ink-2); }
+
+  .fine { font-size: 13px; color: var(--muted); }
+
+  /* checklist */
+  .check { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+  .check li {
+    display: grid; grid-template-columns: 22px 1fr; gap: 12px;
+    padding: 11px 0; border-bottom: 1px solid var(--line-soft);
+    font-size: 14.5px; color: var(--ink-2);
+  }
+
+  .check li:last-child { border-bottom: 0; }
+
+  .check li::before {
+    content: "□"; font-family: var(--font-mono); font-size: 15px;
+    color: var(--muted); line-height: 1.6;
+  }
+
+  .check li[data-done="true"]::before { content: "✓"; color: var(--ok); font-weight: 600; }
+
+  @media (max-width: 620px) {
+    .hint { display: none; }
+    .arc li { flex-basis: 100%; }
+  }
+</style>
+
+<div class="deck">
+  <header class="deck-top">
+    <span class="brand">my_infra</span>
+    <span class="sep"></span>
+    <span class="name">OrbStack が動くまで</span>
+    <nav class="rail" id="rail" aria-label="スライド"></nav>
+  </header>
+
+  <main class="stage" id="stage">
+
+    <!-- 01 -->
+    <section class="slide">
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <p class="eyebrow">nix-darwin switch のあと · 2026-09-09</p>
+        <h1>OrbStack が動くまで</h1>
+        <p class="lead"><code>switch</code> は成功した。それなのに <code>docker -v</code> が <code>command not found</code> になる。<br>失敗ではなく、<strong>まだ 2 手残っている</strong>だけ。現在地はここ。</p>
+      </div>
+
+      <ol class="arc">
+        <li data-state="done">
+          <span class="mark">✓ 完了</span>
+          <span class="step">1. 適用 (activation)</span>
+          <span class="sub">OrbStack.app が配置された</span>
+        </li>
+        <li data-state="now">
+          <span class="mark">▶ 今ここ</span>
+          <span class="step">2. PATH の反映</span>
+          <span class="sub">シェルを開き直すだけ</span>
+        </li>
+        <li>
+          <span class="mark">○ 未</span>
+          <span class="step">3. OrbStack の起動</span>
+          <span class="sub">Docker デーモンが動き出す</span>
+        </li>
+        <li>
+          <span class="mark">○ 未</span>
+          <span class="step">4. コンテナを動かす</span>
+          <span class="sub">GitLab を立ち上げる</span>
+        </li>
+      </ol>
+
+      <p class="fine">残り 2 コマンド。合計 5 分ほど。</p>
+    </section>
+
+    <!-- 02 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">01 — 状況確認</p>
+        <h2>あのログは、全部「成功」だった</h2>
+      </div>
+
+      <p class="lead">activation のログは <strong>やったことを 1 行ずつ報告している</strong>だけで、エラーは 1 つも出ていない。前回の <code>error: Determinate detected</code> のような行がなければ成功。</p>
+
+      <pre class="term">building the system configuration...
+fixing permissions on /etc/synthetic.conf...   <span class="cmt"># /run を作る下準備 (macOS はルート直下に書けない)</span>
+setting up /run via /etc/synthetic.conf...     <span class="cmt"># /run/current-system の置き場</span>
+<span class="ok">setting up /Applications/Nix Apps...</span>           <span class="cmt"># ← OrbStack.app はここに置かれた</span>
+setting up pam...
+applying patches...
+<span class="ok">setting up /etc...</span>                             <span class="cmt"># ← PATH を設定する /etc/zshenv はここ</span>
+setting up launchd services...
+creating service org.nixos.activate-system     <span class="cmt"># 再起動後も設定を復元する常駐サービス</span>
+configuring networking...
+configuring application firewall...
+configuring power...
+setting up /Library/Fonts/Nix Fonts...
+setting nvram variables...</pre>
+
+      <div class="note">
+        <span class="tag">この 2 行が今回の鍵</span>
+        <p><code>setting up /Applications/Nix Apps</code> でアプリが置かれ、<code>setting up /etc</code> で PATH の設定が書かれた。<strong>どちらもファイルを置いただけ</strong>で、アプリは起動していないし、今開いているシェルにも反映されていない。</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">02 — 証拠</p>
+        <h2>中身は、すでに全部そろっている</h2>
+      </div>
+
+      <p class="lead">PATH を通した状態で叩けば、この通り動く。「入っていない」のではなく「呼べていない」だけ。</p>
+
+      <pre class="term"><span class="dollar">$</span> ls -l /run/current-system
+/run/current-system -> /nix/store/vnn9z09...-darwin-system-26.11.4cff07d
+
+<span class="dollar">$</span> docker -v
+<span class="ok">Docker version 29.4.0, build 9d7ad9f</span>
+<span class="dollar">$</span> docker-compose version
+<span class="ok">Docker Compose version v5.1.2</span>
+<span class="dollar">$</span> orbctl version
+<span class="ok">Version: 2.2.3 (2020300)</span>
+<span class="dollar">$</span> darwin-version
+<span class="ok">26.11.4cff07d</span>
+
+<span class="dollar">$</span> ls "/Applications/Nix Apps"
+<span class="ok">OrbStack.app</span></pre>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3><code>/run/current-system/sw/bin</code> の中身</h3>
+          <p><code>docker</code> <code>docker-buildx</code> <code>docker-compose</code> <code>docker-tools</code> <code>kubectl</code> <code>orb</code> <code>orbctl</code>、そして <code>darwin-rebuild</code> <code>darwin-version</code> など。</p>
+        </div>
+        <div class="card">
+          <h3>2 回目以降が短くなる理由</h3>
+          <p><code>darwin-rebuild</code> 自体がここに入った。今後は <code>sudo darwin-rebuild switch --flake .#mini</code> だけでよい。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">03 — 原因</p>
+        <h2>PATH はシェルの起動時にしか読まれない</h2>
+      </div>
+
+      <p class="lead">nix-darwin は <code>/etc/zshenv</code> を書き換えて PATH を設定する。ただしこれは <strong>新しいシェルが起動したときに読まれる</strong>ファイル。<code>switch</code> を打ったシェルは、それより前に起動している。</p>
+
+      <pre class="term">新しい zsh が起動
+   │
+   ├─ /etc/zshenv を読む          <span class="cmt"># nix-darwin が作った symlink</span>
+   │     │
+   │     └─ . /nix/store/9fsy5zj...-set-environment
+   │            │
+   │            └─ export PATH=$HOME/.nix-profile/bin:<span class="hl">/run/current-system/sw/bin</span>:...
+   │                                                   <span class="cmt">↑ ここで docker が見つかるようになる</span>
+   ├─ /etc/zshrc を読む
+   └─ ~/.zshrc を読む             <span class="cmt"># 個人設定は最後。ここでの上書きが勝つ</span></pre>
+
+      <div class="note">
+        <span class="tag">つまり</span>
+        <p>設定ファイルはもう書かれている。<strong>読み込ませればいいだけ</strong>で、再インストールも再適用も要らない。</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">対処 1 / 3</p>
+        <h2>シェルを開き直す</h2>
+      </div>
+
+      <div class="fix">
+        <span class="tag">これを実行</span>
+        <div class="run"><span class="dollar">$</span>exec zsh -l</div>
+        <p>今のウィンドウのまま、zsh を起動し直す。新しいターミナルを開いても結果は同じ。</p>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> exec zsh -l
+<span class="dollar">$</span> docker -v
+<span class="ok">Docker version 29.4.0, build 9d7ad9f</span>   <span class="cmt"># 通るようになる</span></pre>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>それでも通らないときは</h3>
+          <p><code>~/.zshrc</code> で <code>PATH</code> を丸ごと上書きしている可能性がある。個人設定は <code>/etc/zshenv</code> より後に読まれるので、そちらが勝つ。</p>
+        </div>
+        <div class="card">
+          <h3>確かめ方</h3>
+          <p><code>echo $PATH | tr ':' '\n' | grep current-system</code> で <code>/run/current-system/sw/bin</code> が含まれているかを見る。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">04 — 次の壁</p>
+        <h2>CLI はあっても、デーモンがいない</h2>
+      </div>
+
+      <p class="lead">PATH が通っても、まだコンテナは動かない。<code>docker</code> は<strong>命令を送るだけ</strong>のコマンドで、受け取って実行する側が別に必要になる。</p>
+
+      <div class="grid cols-2">
+        <div class="card" data-who="orb">
+          <span class="who" data-who="orb">今そろっているもの</span>
+          <span class="sig">docker / orbctl / kubectl</span>
+          <p>コマンド (クライアント)。「コンテナを起動して」と伝える役。</p>
+        </div>
+        <div class="card" data-who="orb">
+          <span class="who" data-who="orb">足りないもの</span>
+          <span class="sig">OrbStack.app</span>
+          <p>Linux VM と Docker デーモン。実際にコンテナを動かす役。まだ起動していない。</p>
+        </div>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> pgrep -x OrbStack
+<span class="bad">(何も出ない)</span>   <span class="cmt"># 未起動</span></pre>
+
+      <div class="note">
+        <span class="tag">Nix でできるのはここまで</span>
+        <p>Nix が保証するのは「アプリとコマンドを正しい場所に置くこと」。<strong>起動は Nix の仕事ではない</strong>ので、初回は自分で立ち上げる。</p>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">対処 2 / 3</p>
+        <h2>OrbStack を起動する</h2>
+      </div>
+
+      <div class="fix">
+        <span class="tag">これを実行</span>
+        <div class="run"><span class="dollar">$</span>open "/Applications/Nix Apps/OrbStack.app"</div>
+        <p>パスにスペースが入るので引用符が要る。Finder から起動しても同じ。</p>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>初回だけ聞かれること</h3>
+          <p><strong>特権ヘルパーのインストール</strong>で管理者パスワードを求められる。ネットワーク設定に必要なもので、正常な挙動。</p>
+        </div>
+        <div class="card">
+          <h3>起動できたかの確認</h3>
+          <p><code>docker ps</code> が空のテーブルを返せば成功。エラーが出るなら、まだ起動中か未起動。</p>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="tag">なぜ普通の /Applications ではないのか</span>
+        <p>nix-darwin が管理するアプリは <code>/Applications/Nix Apps</code> にまとめられる。手で入れたアプリと混ざらないようにするため。Spotlight や Launchpad からは通常どおり探せる。</p>
+      </div>
+    </section>
+
+    <!-- 08 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">05 — 紛らわしい点</p>
+        <h2><code>docker compose</code> と <code>docker-compose</code> の違い</h2>
+      </div>
+
+      <p class="lead">起動前の今は、<strong>スペース版だけが使えない</strong>。ハイフン版は動く。同じものに見えて、呼ばれ方が違う。</p>
+
+      <pre class="term"><span class="dollar">$</span> docker compose version
+<span class="bad">docker: unknown command: docker compose</span>
+
+<span class="dollar">$</span> docker-compose version
+<span class="ok">Docker Compose version v5.1.2</span></pre>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>書き方</th><th>正体</th><th>探し先</th><th>今の状態</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>docker-compose</code></td>
+              <td>独立した実行ファイル</td>
+              <td>PATH</td>
+              <td>動く</td>
+            </tr>
+            <tr>
+              <td><code>docker compose</code></td>
+              <td>docker のサブコマンド (プラグイン)</td>
+              <td><code>~/.docker/cli-plugins</code></td>
+              <td>まだ空</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <span class="tag">対処は不要</span>
+        <p><code>~/.docker/cli-plugins</code> は <strong>OrbStack が初回起動時に自分で用意する</strong>。手で作る必要はない。起動後は両方の書き方が使える。</p>
+      </div>
+    </section>
+
+    <!-- 09 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">対処 3 / 3</p>
+        <h2>GitLab を起動する</h2>
+      </div>
+
+      <div class="fix">
+        <span class="tag">これを実行</span>
+        <div class="run"><span class="dollar">$</span>cd gitlab && docker compose up -d</div>
+        <p>初回はイメージの取得に時間がかかる。GitLab は起動完了までさらに数分かかる。</p>
+      </div>
+
+      <div class="grid cols-3">
+        <div class="card">
+          <h3>Web</h3>
+          <p><code>http://127.0.0.1:8080</code></p>
+        </div>
+        <div class="card">
+          <h3>SSH</h3>
+          <p>ポート <code>2222</code></p>
+        </div>
+        <div class="card">
+          <h3>データの置き場</h3>
+          <p><code>~/srv/gitlab</code> の <code>config</code> / <code>logs</code> / <code>data</code></p>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="tag">データがリポジトリの外にある理由</span>
+        <p><code>gitlab-secrets.json</code> や SSH ホスト鍵が含まれるため。このリポジトリは公開されているので、実データは <code>~/srv/gitlab</code> に置き、compose からは <code>${HOME}/srv/gitlab</code> として参照している。</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">06 — 確認</p>
+        <h2>ここまで通れば完了</h2>
+      </div>
+
+      <ul class="check">
+        <li data-done="true"><code>sudo nix run nix-darwin/master#darwin-rebuild -- switch --flake .#mini</code> がエラーなく終わる</li>
+        <li data-done="true"><code>ls "/Applications/Nix Apps"</code> に <code>OrbStack.app</code> がある</li>
+        <li><code>exec zsh -l</code> のあと <code>docker -v</code> がバージョンを返す</li>
+        <li><code>open "/Applications/Nix Apps/OrbStack.app"</code> で起動し、パスワードを入力する</li>
+        <li><code>docker ps</code> がエラーなく空のテーブルを返す</li>
+        <li><code>cd gitlab &amp;&amp; docker compose up -d</code> でコンテナが立ち上がる</li>
+        <li><code>http://127.0.0.1:8080</code> が開く</li>
+      </ul>
+
+      <p class="fine">上 2 つは実行済み。残りは 5 つ。</p>
+    </section>
+
+    <!-- 11 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">07 — 切り分け</p>
+        <h2>うまくいかないときの見分け方</h2>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>症状</th><th>原因</th><th>対処</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>command not found: docker</code></td>
+              <td>PATH が未反映</td>
+              <td><code>exec zsh -l</code></td>
+            </tr>
+            <tr>
+              <td><code>exec zsh -l</code> しても通らない</td>
+              <td><code>~/.zshrc</code> が PATH を上書き</td>
+              <td>個人設定側で <code>/run/current-system/sw/bin</code> を残す</td>
+            </tr>
+            <tr>
+              <td><code>Cannot connect to the Docker daemon</code></td>
+              <td>OrbStack が未起動</td>
+              <td><code>open "/Applications/Nix Apps/OrbStack.app"</code></td>
+            </tr>
+            <tr>
+              <td><code>docker compose</code> だけ通らない</td>
+              <td>プラグイン未配置</td>
+              <td>OrbStack を起動する / <code>docker-compose</code> で代用</td>
+            </tr>
+            <tr>
+              <td><code>Determinate detected, aborting</code></td>
+              <td>Nix 管理の二重化</td>
+              <td><code>hosts/mini.nix</code> の <code>nix.enable = false;</code></td>
+            </tr>
+            <tr>
+              <td>適用後に調子が悪い</td>
+              <td>直前の変更が原因</td>
+              <td><code>sudo darwin-rebuild --rollback</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">08 — 補足</p>
+        <h2>ついでに変わったこと</h2>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>zsh のプロンプトが変わる</h3>
+          <p>nix-darwin の <code>/etc/zshrc</code> が <code>prompt suse</code> を設定する。<code>~/.zshrc</code> は後に読まれるので、自分のプロンプト設定があればそちらが優先される。</p>
+        </div>
+        <div class="card">
+          <h3>再起動しても復元される</h3>
+          <p><code>org.nixos.activate-system</code> という launchd サービスが作られた。起動のたびに設定を適用し直す。</p>
+        </div>
+        <div class="card">
+          <h3><code>/run</code> が作られた</h3>
+          <p>macOS はルート直下に書き込めないため、<code>/etc/synthetic.conf</code> という仕組みで <code>/run</code> を用意している。</p>
+        </div>
+        <div class="card">
+          <h3>Nix 本体は Determinate のまま</h3>
+          <p><code>nix.enable = false;</code> にしたので、Nix 自体の設定は <code>/etc/nix/nix.custom.conf</code> と <code>determinate-nixd</code> が担当する。</p>
+        </div>
+      </div>
+
+      <p class="fine">コマンドの各パーツの意味は <code>docs/darwin-rebuild.html</code> を参照。 — ysksm/my_infra</p>
+    </section>
+
+  </main>
+
+  <footer class="deck-nav">
+    <button id="prev" type="button" aria-label="前のスライド">←</button>
+    <span class="counter" id="counter">01 / 12</span>
+    <button id="next" type="button" aria-label="次のスライド">→</button>
+    <span class="hint">← → / スペースキーでも移動できます</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var rail = document.getElementById('rail');
+    var counter = document.getElementById('counter');
+    var prev = document.getElementById('prev');
+    var next = document.getElementById('next');
+    var stage = document.getElementById('stage');
+    var index = 0;
+
+    var dots = slides.map(function (_, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', (i + 1) + ' 枚目へ');
+      b.addEventListener('click', function () { go(i); });
+      rail.appendChild(b);
+      return b;
+    });
+
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+    function go(n) {
+      index = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach(function (s, i) { s.classList.toggle('is-active', i === index); });
+      dots.forEach(function (d, i) { d.setAttribute('aria-current', i === index ? 'true' : 'false'); });
+      counter.textContent = pad(index + 1) + ' / ' + pad(slides.length);
+      prev.disabled = index === 0;
+      next.disabled = index === slides.length - 1;
+      stage.scrollTop = 0;
+      if (location.hash !== '#' + (index + 1)) {
+        history.replaceState(null, '', '#' + (index + 1));
+      }
+    }
+
+    prev.addEventListener('click', function () { go(index - 1); });
+    next.addEventListener('click', function () { go(index + 1); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { go(index + 1); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { go(index - 1); e.preventDefault(); }
+      else if (e.key === 'Home') { go(0); e.preventDefault(); }
+      else if (e.key === 'End') { go(slides.length - 1); e.preventDefault(); }
+    });
+
+    var start = parseInt((location.hash || '').slice(1), 10);
+    go(isNaN(start) ? 0 : start - 1);
+  })();
+</script>

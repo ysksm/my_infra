@@ -1,0 +1,1066 @@
+<title>darwin-rebuild 解剖図</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
+
+<style>
+  :root {
+    --paper:     #E7ECF2;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F4F8;
+    --ink:       #131A24;
+    --ink-2:     #414E5C;
+    --muted:     #6D7A88;
+    --line:      #CFD8E2;
+    --line-soft: #E0E6ED;
+    --accent:    #1F6FB2;
+
+    --term-bg:   #101820;
+    --term-fg:   #D7E0EA;
+    --term-dim:  #7C8B9B;
+    --term-line: #24313E;
+
+    --p-apple:    #5C6874;
+    --p-det:      #5B44D9;
+    --p-nixpkgs:  #1F6FB2;
+    --p-darwin:   #0B8476;
+    --p-orb:      #BF5F10;
+    --p-you:      #A83766;
+
+    --r-sm: 4px;
+    --r-md: 8px;
+    --shadow: 0 1px 2px rgba(19, 26, 36, .06), 0 8px 24px -12px rgba(19, 26, 36, .18);
+
+    --font-jp: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0F151C;
+      --surface:   #161E27;
+      --surface-2: #1B242E;
+      --ink:       #E6ECF3;
+      --ink-2:     #B4C0CD;
+      --muted:     #8493A2;
+      --line:      #2A3642;
+      --line-soft: #222D38;
+      --accent:    #6BB3E8;
+
+      --term-bg:   #070C11;
+      --term-fg:   #D7E0EA;
+      --term-dim:  #6E7E8E;
+      --term-line: #1B252F;
+
+      --p-apple:    #9AA6B2;
+      --p-det:      #9C8BFF;
+      --p-nixpkgs:  #6BB3E8;
+      --p-darwin:   #3FC7B4;
+      --p-orb:      #F0A055;
+      --p-you:      #EC7BA8;
+
+      --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -12px rgba(0, 0, 0, .6);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #0F151C;
+    --surface:   #161E27;
+    --surface-2: #1B242E;
+    --ink:       #E6ECF3;
+    --ink-2:     #B4C0CD;
+    --muted:     #8493A2;
+    --line:      #2A3642;
+    --line-soft: #222D38;
+    --accent:    #6BB3E8;
+
+    --term-bg:   #070C11;
+    --term-fg:   #D7E0EA;
+    --term-dim:  #6E7E8E;
+    --term-line: #1B252F;
+
+    --p-apple:    #9AA6B2;
+    --p-det:      #9C8BFF;
+    --p-nixpkgs:  #6BB3E8;
+    --p-darwin:   #3FC7B4;
+    --p-orb:      #F0A055;
+    --p-you:      #EC7BA8;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 8px 24px -12px rgba(0, 0, 0, .6);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-jp);
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* provider hue assignment: one variable, read by every component */
+  [data-who]                { --c: var(--p-apple); }
+  [data-who="det"]          { --c: var(--p-det); }
+  [data-who="nixpkgs"]      { --c: var(--p-nixpkgs); }
+  [data-who="darwin"]       { --c: var(--p-darwin); }
+  [data-who="orb"]          { --c: var(--p-orb); }
+  [data-who="you"]          { --c: var(--p-you); }
+
+  /* ---------- deck chrome ---------- */
+
+  .deck {
+    min-height: 100svh;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .deck-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px clamp(16px, 4vw, 40px);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .brand {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .deck-top .sep {
+    width: 1px;
+    height: 14px;
+    background: var(--line);
+  }
+
+  .deck-top .name {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--ink-2);
+  }
+
+  .rail {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+    padding: 0;
+    list-style: none;
+  }
+
+  .rail button {
+    width: 16px;
+    height: 6px;
+    padding: 0;
+    border: 0;
+    border-radius: 999px;
+    background: var(--line);
+    cursor: pointer;
+    transition: background .18s ease, width .18s ease;
+  }
+
+  .rail button:hover { background: var(--muted); }
+  .rail button[aria-current="true"] { background: var(--accent); width: 28px; }
+
+  .stage {
+    overflow-y: auto;
+    padding: clamp(22px, 3.5vw, 48px) clamp(16px, 4vw, 40px);
+  }
+
+  .slide { display: none; }
+
+  .slide.is-active {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 2.4vw, 28px);
+    width: 100%;
+    max-width: 1060px;
+    margin-inline: auto;
+    animation: rise .32s cubic-bezier(.2, .7, .3, 1);
+  }
+
+  @keyframes rise {
+    from { opacity: .55; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide.is-active { animation: none; }
+    .rail button { transition: none; }
+  }
+
+  .deck-nav {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px clamp(16px, 4vw, 40px);
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .deck-nav button {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 6px 14px;
+    color: var(--ink-2);
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--r-sm);
+    cursor: pointer;
+  }
+
+  .deck-nav button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .deck-nav button:disabled { opacity: .38; cursor: default; }
+
+  .counter {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-variant-numeric: tabular-nums;
+    color: var(--muted);
+  }
+
+  .hint {
+    margin-left: auto;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ---------- typography ---------- */
+
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0;
+  }
+
+  h1 {
+    font-size: clamp(30px, 5vw, 52px);
+    font-weight: 900;
+    line-height: 1.2;
+    letter-spacing: -.01em;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h2 {
+    font-size: clamp(21px, 2.8vw, 30px);
+    font-weight: 700;
+    line-height: 1.35;
+    text-wrap: balance;
+    margin: 0;
+  }
+
+  h3 {
+    font-size: 15px;
+    font-weight: 700;
+    margin: 0;
+  }
+
+  p { margin: 0; max-width: 68ch; }
+
+  .lead {
+    font-size: clamp(15px, 1.5vw, 17px);
+    color: var(--ink-2);
+  }
+
+  .slide-head {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding-bottom: 14px;
+    border-bottom: 2px solid var(--ink);
+  }
+
+  strong { font-weight: 700; }
+  code   { font-family: var(--font-mono); font-size: .93em; }
+
+  .k {
+    font-family: var(--font-mono);
+    font-size: .9em;
+    padding: 1px 5px;
+    background: var(--surface-2);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--r-sm);
+    white-space: nowrap;
+  }
+
+  /* ---------- provider chip ---------- */
+
+  .who {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .04em;
+    padding: 2px 8px;
+    color: var(--c);
+    background: color-mix(in srgb, var(--c) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 34%, transparent);
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+
+  .who::before {
+    content: "";
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--c);
+  }
+
+  /* ---------- the command ---------- */
+
+  .cmd {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: clamp(13px, 1.9vw, 21px);
+    line-height: 2.3;
+    color: var(--term-fg);
+    background: var(--term-bg);
+    border: 1px solid var(--term-line);
+    border-radius: var(--r-md);
+    padding: 22px clamp(16px, 2.5vw, 26px);
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  .cmd .dollar { color: var(--term-dim); margin-right: 10px; }
+
+  .cmd .seg {
+    position: relative;
+    padding-bottom: 3px;
+    border-bottom: 3px solid var(--c);
+  }
+
+  .cmd .seg sup {
+    font-size: .55em;
+    font-weight: 600;
+    color: var(--c);
+    margin-right: 2px;
+    vertical-align: super;
+  }
+
+  /* ---------- generic blocks ---------- */
+
+  .grid { display: grid; gap: 12px; }
+  .cols-2 { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+  .cols-3 { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+
+  .card {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+  }
+
+  .card .num {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--c, var(--muted));
+  }
+
+  .card .sig {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--ink);
+    word-break: break-all;
+  }
+
+  .card p { font-size: 14px; color: var(--ink-2); }
+
+  .card .top {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  /* the accented card used for the provider legend */
+  .who-card {
+    border-left: 3px solid var(--c);
+  }
+
+  .who-card .role {
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  /* ---------- terminal transcript ---------- */
+
+  .term {
+    font-family: var(--font-mono);
+    font-size: clamp(12px, 1.15vw, 13.5px);
+    line-height: 1.8;
+    color: var(--term-fg);
+    background: var(--term-bg);
+    border: 1px solid var(--term-line);
+    border-radius: var(--r-md);
+    padding: 16px 18px;
+    margin: 0;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .term .dollar { color: var(--term-dim); user-select: none; }
+  .term .cmt    { color: var(--term-dim); }
+  .term .ok     { color: #6FD09B; }
+  .term .bad    { color: #FF8A7A; }
+  .term .hl     { color: #F0C169; }
+
+  /* ---------- table ---------- */
+
+  .tbl-wrap { overflow-x: auto; }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+
+  th {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    text-align: left;
+    color: var(--muted);
+    padding: 0 14px 8px 0;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 14px 11px 0;
+    border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-2);
+    vertical-align: top;
+  }
+
+  td:first-child { color: var(--ink); }
+
+  tr:last-child td { border-bottom: 0; }
+
+  /* ---------- ordered sequence (only where order is real) ---------- */
+
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .steps li {
+    counter-increment: step;
+    display: grid;
+    grid-template-columns: 30px 1fr;
+    gap: 14px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--line-soft);
+  }
+
+  .steps li:last-child { border-bottom: 0; }
+
+  .steps li::before {
+    content: counter(step, decimal-leading-zero);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    padding-top: 4px;
+  }
+
+  .steps .what { font-size: 15px; font-weight: 500; }
+  .steps .by   { font-size: 13px; color: var(--muted); }
+
+  /* ---------- callout ---------- */
+
+  .note {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px 18px;
+    background: var(--surface-2);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  }
+
+  .note .tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .note p { font-size: 14px; }
+
+  .bullets {
+    margin: 0;
+    padding-left: 1.15em;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+  }
+
+  .bullets li { font-size: 14.5px; color: var(--ink-2); }
+
+  .fine { font-size: 13px; color: var(--muted); }
+
+  @media (max-width: 620px) {
+    .hint { display: none; }
+    .steps li { grid-template-columns: 24px 1fr; gap: 10px; }
+  }
+</style>
+
+<div class="deck">
+  <header class="deck-top">
+    <span class="brand">my_infra</span>
+    <span class="sep"></span>
+    <span class="name">darwin-rebuild 解剖図</span>
+    <nav class="rail" id="rail" aria-label="スライド"></nav>
+  </header>
+
+  <main class="stage" id="stage">
+
+    <!-- 01 -->
+    <section class="slide">
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <p class="eyebrow">Nix / nix-darwin / macOS 26 · Apple Silicon</p>
+        <h1>darwin-rebuild 解剖図</h1>
+        <p class="lead">1 行のコマンドに、<strong>7 つのパーツ</strong>と<strong>6 者の提供物</strong>が詰まっている。<br>どこからどこまでが誰のものなのかを、1 つずつほどいていく。</p>
+      </div>
+
+      <code class="cmd"><span class="dollar">$</span><span class="seg" data-who="apple"><sup>1</sup>sudo</span> <span class="seg" data-who="det"><sup>2</sup>nix run</span> <span class="seg" data-who="darwin"><sup>3</sup>nix-darwin/master</span><span class="seg" data-who="darwin"><sup>4</sup>#darwin-rebuild</span> <span class="seg" data-who="nixpkgs"><sup>5</sup>--</span> <span class="seg" data-who="darwin"><sup>6</sup>switch</span> <span class="seg" data-who="you"><sup>7</sup>--flake .#mini</span></code>
+
+      <p class="fine">下線の色は「誰が提供しているか」を表す。次のスライドで登場人物を紹介する。</p>
+    </section>
+
+    <!-- 02 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">01 — 登場人物</p>
+        <h2>まず、関わっている 6 者を知る</h2>
+      </div>
+
+      <div class="grid cols-3">
+        <div class="card who-card" data-who="apple">
+          <span class="who" data-who="apple">Apple</span>
+          <span class="sig">sudo</span>
+          <p class="role">macOS 標準。<code>/usr/bin/sudo</code> にある OS の一部。</p>
+        </div>
+        <div class="card who-card" data-who="det">
+          <span class="who" data-who="det">Determinate Systems</span>
+          <span class="sig">nix</span>
+          <p class="role">この Mac に入っている Nix の配布元。<code>nix</code> コマンドの実体。</p>
+        </div>
+        <div class="card who-card" data-who="darwin">
+          <span class="who" data-who="darwin">nix-darwin プロジェクト</span>
+          <span class="sig">darwin-rebuild</span>
+          <p class="role">macOS を宣言的に設定するコミュニティ製のモジュール群。</p>
+        </div>
+        <div class="card who-card" data-who="nixpkgs">
+          <span class="who" data-who="nixpkgs">NixOS / nixpkgs</span>
+          <span class="sig">パッケージ定義</span>
+          <p class="role">10 万個規模のレシピ集。<code>orbstack</code> の「取ってき方」もここ。</p>
+        </div>
+        <div class="card who-card" data-who="orb">
+          <span class="who" data-who="orb">OrbStack</span>
+          <span class="sig">orb / docker / kubectl</span>
+          <p class="role">実際に動くバイナリの作者。商用アプリ（unfree ライセンス）。</p>
+        </div>
+        <div class="card who-card" data-who="you">
+          <span class="who" data-who="you">あなた</span>
+          <span class="sig">flake.nix / hosts / modules</span>
+          <p class="role"><code>~/src/github/my_infra</code>。「何を入れるか」の宣言だけを書く。</p>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="tag">ここが勘所</span>
+        <p>Nix はソフトウェアをほとんど<strong>作っていない</strong>。「どこから取ってきて、どう置くか」を決めて実行する仕組みで、中身は各社・各プロジェクトのものがそのまま入る。</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">02 — 全体像</p>
+        <h2>7 つのパーツに分解する</h2>
+      </div>
+
+      <code class="cmd"><span class="dollar">$</span><span class="seg" data-who="apple"><sup>1</sup>sudo</span> <span class="seg" data-who="det"><sup>2</sup>nix run</span> <span class="seg" data-who="darwin"><sup>3</sup>nix-darwin/master</span><span class="seg" data-who="darwin"><sup>4</sup>#darwin-rebuild</span> <span class="seg" data-who="nixpkgs"><sup>5</sup>--</span> <span class="seg" data-who="darwin"><sup>6</sup>switch</span> <span class="seg" data-who="you"><sup>7</sup>--flake .#mini</span></code>
+
+      <div class="grid cols-2">
+        <div class="card" data-who="apple">
+          <div class="top"><span class="num">1</span><span class="who" data-who="apple">Apple</span></div>
+          <span class="sig">sudo</span>
+          <p>管理者権限で実行する。システム領域を書き換えるため。</p>
+        </div>
+        <div class="card" data-who="det">
+          <div class="top"><span class="num">2</span><span class="who" data-who="det">Determinate</span></div>
+          <span class="sig">nix run</span>
+          <p>インストールせずに、ビルドしてその場で実行する。</p>
+        </div>
+        <div class="card" data-who="darwin">
+          <div class="top"><span class="num">3</span><span class="who" data-who="darwin">nix-darwin</span></div>
+          <span class="sig">nix-darwin/master</span>
+          <p>どの flake か。省略記法で、レジストリが URL に解決する。</p>
+        </div>
+        <div class="card" data-who="darwin">
+          <div class="top"><span class="num">4</span><span class="who" data-who="darwin">nix-darwin</span></div>
+          <span class="sig">#darwin-rebuild</span>
+          <p>その flake の中の、どの成果物か。ここでは実行コマンド。</p>
+        </div>
+        <div class="card" data-who="nixpkgs">
+          <div class="top"><span class="num">5</span><span class="who" data-who="nixpkgs">Nix CLI の作法</span></div>
+          <span class="sig">--</span>
+          <p>ここから先は nix ではなく darwin-rebuild への引数、という境界線。</p>
+        </div>
+        <div class="card" data-who="darwin">
+          <div class="top"><span class="num">6</span><span class="who" data-who="darwin">nix-darwin</span></div>
+          <span class="sig">switch</span>
+          <p>ビルドして、さらに今すぐ有効化する。</p>
+        </div>
+        <div class="card" data-who="you">
+          <div class="top"><span class="num">7</span><span class="who" data-who="you">あなた</span></div>
+          <span class="sig">--flake .#mini</span>
+          <p>カレントディレクトリの flake の、<code>mini</code> という設定を適用する。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">パーツ 1 / 7</p>
+        <h2><code>sudo</code> — 管理者権限を借りる</h2>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>誰のもの？</h3>
+          <p><span class="who" data-who="apple">Apple</span> macOS に最初から入っている <code>/usr/bin/sudo</code>。Nix とは無関係の、ごく普通の UNIX コマンド。</p>
+        </div>
+        <div class="card">
+          <h3>なぜ必要？</h3>
+          <p>このあとの処理が <code>/etc/</code> 配下の設定、launchd デーモン、<code>/run/current-system</code> を書き換えるため。ユーザー権限では触れない場所。</p>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="tag">実行時に出た警告</span>
+        <p><code>sudo</code> で root になると、Nix から見たホームディレクトリも root のものに変わる。これは無害で、無視してよい。</p>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> sudo nix run nix-darwin/master#darwin-rebuild -- switch --flake .#mini
+Password:
+<span class="hl">warning: $HOME ('/Users/<user>') is not owned by you, falling back to
+the one defined in the 'passwd' file ('/var/root')</span></pre>
+    </section>
+
+    <!-- 05 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">パーツ 2 / 7</p>
+        <h2><code>nix run</code> — 入れずに、その場で走らせる</h2>
+      </div>
+
+      <p class="lead">この Mac の <code>nix</code> は <span class="who" data-who="det">Determinate Systems</span> 版。上流の Nix をベースにした独自ディストリビューション。</p>
+
+      <pre class="term"><span class="dollar">$</span> nix --version
+nix (<span class="hl">Determinate Nix 3.22.3</span>) 2.35.2   <span class="cmt"># 上流 Nix 2.35.2 が中身</span></pre>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>サブコマンド</th><th>ビルド</th><th>実行</th><th>残る？</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>nix build</code></td><td>する</td><td>しない</td><td><code>./result</code> が残る</td></tr>
+            <tr><td><code>nix profile install</code></td><td>する</td><td>しない</td><td>恒久的に PATH へ</td></tr>
+            <tr><td><code>nix run</code></td><td>する</td><td><strong>する</strong></td><td><strong>残らない</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <span class="tag">なぜ run なのか — 鶏と卵</span>
+        <p>「nix-darwin を入れるためのコマンド」が nix-darwin の中にある。まだ何も入っていないので、一時的に借りてくるしかない。実際、今この Mac には存在しない。</p>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> which darwin-rebuild
+<span class="bad">darwin-rebuild not found</span>
+<span class="dollar">$</span> ls /run/current-system
+<span class="bad">No such file or directory</span>   <span class="cmt"># nix-darwin はまだ未適用</span></pre>
+    </section>
+
+    <!-- 06 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">パーツ 3 / 7</p>
+        <h2><code>nix-darwin/master</code> — 省略名が URL に化ける</h2>
+      </div>
+
+      <p class="lead">これは短縮記法。<strong>フレークレジストリ</strong>という名前帳を引いて、本当の場所に解決される。この環境には 39 件の省略名が登録されている。</p>
+
+      <pre class="term"><span class="dollar">$</span> nix registry list | grep nix-darwin
+global flake:nix-darwin <span class="ok">github:nix-darwin/nix-darwin</span>
+
+<span class="dollar">$</span> nix flake metadata nix-darwin/master
+Resolved URL:  github:nix-darwin/nix-darwin/<span class="hl">master</span>
+Locked URL:    github:nix-darwin/nix-darwin/<span class="hl">4cff07de74b50e64bdd68cd4e722ab5b6b35ee48</span>
+Description:   A collection of darwin modules</pre>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3><code>master</code> はブランチ名</h3>
+          <p>毎回その時点の最新が取られる。試すには手軽だが、日によって結果が変わりうる。</p>
+        </div>
+        <div class="card">
+          <h3>本番では固定する</h3>
+          <p>このリポジトリでは <code>flake.lock</code> に <code>4cff07de</code> を記録済み。<code>--flake .#mini</code> 側は常に同じものを使う。</p>
+        </div>
+      </div>
+
+      <p class="fine">つまり同じ 1 行の中で、nix-darwin を 2 回参照している。<code>nix run</code> 用は最新、設定の評価用は lock 固定。</p>
+    </section>
+
+    <!-- 07 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">パーツ 4 / 7</p>
+        <h2><code>#darwin-rebuild</code> — flake の中のどれか</h2>
+      </div>
+
+      <p class="lead"><code>#</code> の後ろは<strong>属性セレクタ</strong>。1 つの flake は複数の成果物を持つので、そのどれを指すかを書く。</p>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>書き方</th><th>指しているもの</th><th>提供者</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>nix-darwin/master#darwin-rebuild</code></td><td>実行できるコマンド</td><td><span class="who" data-who="darwin">nix-darwin</span></td></tr>
+            <tr><td><code>.#orbstack</code></td><td>OrbStack のパッケージ</td><td><span class="who" data-who="nixpkgs">nixpkgs</span></td></tr>
+            <tr><td><code>.#darwinConfigurations.mini</code></td><td>システム構成そのもの</td><td><span class="who" data-who="you">あなた</span></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <span class="tag">darwin-rebuild の正体</span>
+        <p>特別なバイナリではなく、nix-darwin が提供するシェルスクリプト。中では「構成を <code>nix build</code> する」→「できたものを有効化する」を順に行っているだけ。</p>
+      </div>
+    </section>
+
+    <!-- 08 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">パーツ 5 / 7</p>
+        <h2><code>--</code> — 引数の持ち主が変わる境界線</h2>
+      </div>
+
+      <p class="lead">1 行の中に、<strong>2 つのプログラムへの指示</strong>が混ざっている。その切れ目を示すのが単独の <code>--</code>。UNIX 共通の作法で、Nix 固有のものではない。</p>
+
+      <pre class="term">sudo nix run nix-darwin/master#darwin-rebuild <span class="hl">--</span> switch --flake .#mini
+     └────────── nix への指示 ──────────┘    └── darwin-rebuild への指示 ──┘</pre>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>これが無いと</h3>
+          <p><code>nix</code> が <code>switch</code> や <code>--flake</code> を自分宛のオプションだと解釈してしまい、知らないオプションだとしてエラーになる。</p>
+        </div>
+        <div class="card">
+          <h3>同じ作法の例</h3>
+          <p><code>ls -- -file</code>（<code>-file</code> をオプションでなくファイル名として扱う）、<code>git checkout -- path</code> など。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 09 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">パーツ 6 / 7</p>
+        <h2><code>switch</code> — ビルドして、有効化まで進める</h2>
+      </div>
+
+      <p class="lead"><span class="who" data-who="darwin">nix-darwin</span> が提供するサブコマンド。どこまでやるかで名前が分かれている。</p>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>サブコマンド</th><th>やること</th><th>システムは変わる？</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>check</code></td><td>設定を評価してエラーを見る</td><td>変わらない</td></tr>
+            <tr><td><code>build</code></td><td>ビルドして <code>./result</code> を作る</td><td>変わらない</td></tr>
+            <tr><td><code>switch</code></td><td>ビルド + 有効化 + 次回起動時のデフォルトに設定</td><td><strong>変わる</strong></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <span class="tag">やり直せる</span>
+        <p>適用のたびに「世代」が積まれる。<code>darwin-rebuild --list-generations</code> で一覧、<code>--rollback</code> で 1 つ前に戻せる。壊しても戻れるのが宣言的管理の利点。</p>
+      </div>
+    </section>
+
+    <!-- 10 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">パーツ 7 / 7</p>
+        <h2><code>--flake .#mini</code> — ここだけがあなたの担当</h2>
+      </div>
+
+      <p class="lead"><code>.</code> はカレントディレクトリの <code>flake.nix</code>、<code>mini</code> はその中の <code>darwinConfigurations.mini</code>。このコマンドで唯一、自分が書いたものを指している部分。</p>
+
+      <pre class="term">~/src/github/my_infra/
+├── flake.nix                <span class="cmt"># darwinConfigurations.mini ← ここが呼ばれる</span>
+│     ├─ hosts/mini.nix      <span class="cmt"># この Mac の設定（OrbStack を有効に）</span>
+│     └─ modules/orbstack.nix <span class="cmt"># OrbStack をどう入れるかの部品</span>
+└── flake.lock               <span class="cmt"># nixpkgs / nix-darwin のバージョン固定</span></pre>
+
+      <div class="note">
+        <span class="tag">flake の制約</span>
+        <p>flake は <strong>git が追跡しているファイルしか見えない</strong>。新しく作った <code>.nix</code> ファイルは <code>git add</code> しないと「not tracked by Git」と怒られる。よくハマるポイント。</p>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">03 — 実行されると</p>
+        <h2>何が、誰の手で起きるか</h2>
+      </div>
+
+      <ol class="steps">
+        <li>
+          <div>
+            <div class="what">nix-darwin を GitHub から取得してビルドする</div>
+            <div class="by"><span class="who" data-who="det">Determinate Nix</span> が実行。初回は数分かかる</div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="what"><code>mini</code> の設定を評価し、システム世代を <code>/nix/store</code> にビルド</div>
+            <div class="by"><span class="who" data-who="you">あなたの flake</span> の内容が、<span class="who" data-who="nixpkgs">nixpkgs</span> のレシピを使って形になる</div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="what"><code>/run/current-system</code> を新しい世代に向け替える（activation）</div>
+            <div class="by"><span class="who" data-who="darwin">darwin-rebuild</span> が実行。<code>sudo</code> が要るのはこの工程</div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="what"><code>/Applications/Nix&nbsp;Apps/OrbStack.app</code> が現れる</div>
+            <div class="by">nix-darwin は通常の <code>/Applications</code> ではなく専用フォルダに置く</div>
+          </div>
+        </li>
+        <li>
+          <div>
+            <div class="what">PATH に <code>orb</code> <code>orbctl</code> <code>docker</code> <code>kubectl</code> が入る</div>
+            <div class="by">中身は <span class="who" data-who="orb">OrbStack</span> のバイナリそのもの</div>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <!-- 12 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">04 — 答え合わせ</p>
+        <h2>結局どのコマンドが誰のものか</h2>
+      </div>
+
+      <p class="lead">ビルド済みパッケージの <code>bin/</code> を覗くと、実体がはっきり見える。中身はすべて <code>OrbStack.app</code> への symlink。</p>
+
+      <pre class="term"><span class="dollar">$</span> ls -l /nix/store/3086sz9...-orbstack-2.2.3-20963/bin/
+docker         -> ../Applications/OrbStack.app/Contents/MacOS/xbin/<span class="hl">docker-tools</span>
+docker-buildx  -> ../Applications/OrbStack.app/Contents/MacOS/xbin/<span class="hl">docker-tools</span>
+docker-compose -> ../Applications/OrbStack.app/Contents/MacOS/xbin/<span class="hl">docker-tools</span>
+kubectl        -> ../Applications/OrbStack.app/Contents/MacOS/xbin/kubectl
+orb            -> ../Applications/OrbStack.app/.../MacOS/<span class="hl">scli</span>
+orbctl         -> ../Applications/OrbStack.app/.../MacOS/<span class="hl">scli</span></pre>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>コマンド</th><th>提供者</th><th>備考</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>sudo</code></td><td><span class="who" data-who="apple">Apple</span></td><td>macOS 標準</td></tr>
+            <tr><td><code>nix</code></td><td><span class="who" data-who="det">Determinate Systems</span></td><td>3.22.3（上流 Nix 2.35.2）</td></tr>
+            <tr><td><code>darwin-rebuild</code></td><td><span class="who" data-who="darwin">nix-darwin</span></td><td>適用後に PATH へ入る</td></tr>
+            <tr><td><code>orb</code> / <code>orbctl</code></td><td><span class="who" data-who="orb">OrbStack</span></td><td>同じ <code>scli</code> への 2 つの名前</td></tr>
+            <tr><td><code>docker</code> 系 3 つ</td><td><span class="who" data-who="orb">OrbStack</span></td><td>すべて <code>docker-tools</code> 1 本の別名</td></tr>
+            <tr><td><code>kubectl</code></td><td><span class="who" data-who="orb">OrbStack</span></td><td>アプリに同梱</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <span class="tag">nixpkgs の役割</span>
+        <p>nixpkgs は Docker も OrbStack も<strong>作っていない</strong>。公式の <code>.dmg</code> を取ってきて展開し、<code>bin/</code> に symlink を張る——その手順書を提供しているだけ。</p>
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">05 — つまずいた点</p>
+        <h2>Determinate Nix と nix-darwin の縄張り争い</h2>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> sudo nix run nix-darwin/master#darwin-rebuild -- switch --flake .#mini
+building the system configuration...
+<span class="bad">error: Determinate detected, aborting activation</span>
+
+Determinate uses its own daemon to manage the Nix installation that
+conflicts with nix-darwin's native Nix management.</pre>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>原因</h3>
+          <p><span class="who" data-who="det">Determinate</span> と <span class="who" data-who="darwin">nix-darwin</span> が、どちらも「Nix 本体の面倒を見る」機能を持っている。二重管理になるので nix-darwin 側が中断する。</p>
+        </div>
+        <div class="card">
+          <h3>対処</h3>
+          <p><code>hosts/mini.nix</code> に 1 行足して、nix-darwin 側の Nix 管理を降ろす。</p>
+        </div>
+      </div>
+
+      <pre class="term"><span class="cmt"># hosts/mini.nix</span>
+<span class="ok">nix.enable = false;</span></pre>
+
+      <div class="note">
+        <span class="tag">代償</span>
+        <p><code>nix.settings</code> や Linux ビルダーなど <code>nix.*</code> の設定は使えなくなる。Nix 自体の設定は Determinate 側（<code>/etc/nix/nix.custom.conf</code> や <code>determinate-nixd</code>）で行う。OrbStack を入れる用途には影響しない。</p>
+      </div>
+    </section>
+
+    <!-- 14 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">06 — まとめ</p>
+        <h2>この長さが必要なのは初回だけ</h2>
+      </div>
+
+      <p class="lead">適用が済むと <code>darwin-rebuild</code> 自体が PATH に入るので、2 回目以降はここまで短くなる。</p>
+
+      <pre class="term"><span class="cmt"># 初回（darwin-rebuild がまだ無いので借りてくる）</span>
+<span class="dollar">$</span> sudo nix run nix-darwin/master#darwin-rebuild -- switch --flake .#mini
+
+<span class="cmt"># 2 回目以降</span>
+<span class="dollar">$</span> <span class="ok">sudo darwin-rebuild switch --flake .#mini</span></pre>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>覚えておくこと</h3>
+          <ul class="bullets">
+            <li>Homebrew cask 版の OrbStack があれば先に削除する</li>
+            <li>初回起動時、特権ヘルパーのインストールを求められる</li>
+            <li><code>system.stateVersion = 6</code> は適用後に変更しない</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>更新するとき</h3>
+          <ul class="bullets">
+            <li><code>nix flake update</code> で nixpkgs / nix-darwin を更新</li>
+            <li>もう一度 <code>switch</code> すれば新しい世代になる</li>
+            <li>問題があれば <code>--rollback</code> で戻す</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="fine">ysksm/my_infra — macOS (Apple Silicon) 向け Nix 定義</p>
+    </section>
+
+  </main>
+
+  <footer class="deck-nav">
+    <button id="prev" type="button" aria-label="前のスライド">←</button>
+    <span class="counter" id="counter">01 / 14</span>
+    <button id="next" type="button" aria-label="次のスライド">→</button>
+    <span class="hint">← → / スペースキーでも移動できます</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var rail = document.getElementById('rail');
+    var counter = document.getElementById('counter');
+    var prev = document.getElementById('prev');
+    var next = document.getElementById('next');
+    var stage = document.getElementById('stage');
+    var index = 0;
+
+    var dots = slides.map(function (_, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', (i + 1) + ' 枚目へ');
+      b.addEventListener('click', function () { go(i); });
+      rail.appendChild(b);
+      return b;
+    });
+
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+    function go(n) {
+      index = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach(function (s, i) { s.classList.toggle('is-active', i === index); });
+      dots.forEach(function (d, i) { d.setAttribute('aria-current', i === index ? 'true' : 'false'); });
+      counter.textContent = pad(index + 1) + ' / ' + pad(slides.length);
+      prev.disabled = index === 0;
+      next.disabled = index === slides.length - 1;
+      stage.scrollTop = 0;
+      if (location.hash !== '#' + (index + 1)) {
+        history.replaceState(null, '', '#' + (index + 1));
+      }
+    }
+
+    prev.addEventListener('click', function () { go(index - 1); });
+    next.addEventListener('click', function () { go(index + 1); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { go(index + 1); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { go(index - 1); e.preventDefault(); }
+      else if (e.key === 'Home') { go(0); e.preventDefault(); }
+      else if (e.key === 'End') { go(slides.length - 1); e.preventDefault(); }
+    });
+
+    var start = parseInt((location.hash || '').slice(1), 10);
+    go(isNaN(start) ? 0 : start - 1);
+  })();
+</script>

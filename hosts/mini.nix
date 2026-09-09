@@ -3,6 +3,12 @@
 {
   nixpkgs.hostPlatform = "aarch64-darwin";
 
+  # Nix 本体は Determinate Nix (determinate-nixd) が管理しているため、
+  # nix-darwin 側の Nix 管理を無効にする。両方が有効だと activation が
+  # "Determinate detected, aborting activation" で失敗する。
+  # 代わりに nix.* オプション (nix.settings や linux-builder) は使えなくなる。
+  nix.enable = false;
+
   # このホストで OrbStack を有効にする
   my-infra.orbstack.enable = true;
 
