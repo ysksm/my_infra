@@ -12,6 +12,7 @@ macOS (Apple Silicon) 向けの Nix によるインストール定義。
 | `hosts/mini.nix` | ホスト `mini` 固有の設定 |
 | `gitlab/docker-compose.yaml` | セルフホストする GitLab CE の compose 定義 |
 | `docs/darwin-rebuild.html` | `darwin-rebuild` コマンドの解説スライド (ブラウザで開く) |
+| `docs/orbstack-startup.html` | 適用後に OrbStack を動かすまでの手順スライド |
 
 OrbStack は nixpkgs の `orbstack` パッケージ (unfree、Apple Silicon 専用) を使用する。
 インストールされるもの:
@@ -57,6 +58,20 @@ sudo darwin-rebuild switch --flake .#mini
 
 このコマンドの各パーツが何をしているかは `docs/darwin-rebuild.html` にスライドとして
 まとめてある。`open docs/darwin-rebuild.html` で閲覧できる。
+
+### 適用したあと
+
+`switch` が成功しても、そのシェルにはまだ PATH が反映されていない。
+
+```sh
+exec zsh -l                                  # PATH を反映 (新しいターミナルでも可)
+open "/Applications/Nix Apps/OrbStack.app"   # 初回は特権ヘルパーの許可を求められる
+docker ps                                    # 空のテーブルが返れば完了
+```
+
+`docker compose` (スペース版) は OrbStack の初回起動で `~/.docker/cli-plugins` が
+用意されるまで使えない。それまでは `docker-compose` を使う。
+手順とトラブルシュートは `docs/orbstack-startup.html` にまとめてある。
 
 ### 更新
 
