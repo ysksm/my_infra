@@ -17,9 +17,10 @@ services:
       - "8443:443"
       - "2222:22"
     volumes:
-      - ./data/config:/etc/gitlab
-      - ./data/logs:/var/log/gitlab
-      - ./data/data:/var/opt/gitlab
+      # ランタイムデータはリポジトリ外 (~/srv/gitlab) に置く
+      - ${HOME}/srv/gitlab/config:/etc/gitlab
+      - ${HOME}/srv/gitlab/logs:/var/log/gitlab
+      - ${HOME}/srv/gitlab/data:/var/opt/gitlab
     shm_size: 256m
 
 volumes:
