@@ -1,0 +1,876 @@
+<title>Go が見つからない</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
+
+<style>
+  :root {
+    --paper:     #E7ECF2;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F4F8;
+    --ink:       #131A24;
+    --ink-2:     #414E5C;
+    --muted:     #6D7A88;
+    --line:      #CFD8E2;
+    --line-soft: #E0E6ED;
+    --accent:    #1F6FB2;
+
+    --ok:        #17795A;
+    --now:       #B26206;
+    --todo:      #8894A1;
+
+    --term-bg:   #101820;
+    --term-fg:   #D7E0EA;
+    --term-dim:  #7C8B9B;
+    --term-line: #24313E;
+    --term-ok:   #6FD09B;
+    --term-bad:  #FF8A7A;
+    --term-hl:   #F0C169;
+
+    --p-apple:    #5C6874;
+    --p-det:      #5B44D9;
+    --p-nixpkgs:  #1F6FB2;
+    --p-darwin:   #0B8476;
+    --p-orb:      #BF5F10;
+    --p-you:      #A83766;
+
+    --r-sm: 4px;
+    --r-md: 8px;
+
+    --font-jp: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0F151C;
+      --surface:   #161E27;
+      --surface-2: #1B242E;
+      --ink:       #E6ECF3;
+      --ink-2:     #B4C0CD;
+      --muted:     #8493A2;
+      --line:      #2A3642;
+      --line-soft: #222D38;
+      --accent:    #6BB3E8;
+
+      --ok:        #56C98D;
+      --now:       #F0B25C;
+      --todo:      #71808E;
+
+      --term-bg:   #070C11;
+      --term-line: #1B252F;
+
+      --p-apple:    #9AA6B2;
+      --p-det:      #9C8BFF;
+      --p-nixpkgs:  #6BB3E8;
+      --p-darwin:   #3FC7B4;
+      --p-orb:      #F0A055;
+      --p-you:      #EC7BA8;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #0F151C;
+    --surface:   #161E27;
+    --surface-2: #1B242E;
+    --ink:       #E6ECF3;
+    --ink-2:     #B4C0CD;
+    --muted:     #8493A2;
+    --line:      #2A3642;
+    --line-soft: #222D38;
+    --accent:    #6BB3E8;
+
+    --ok:        #56C98D;
+    --now:       #F0B25C;
+    --todo:      #71808E;
+
+    --term-bg:   #070C11;
+    --term-line: #1B252F;
+
+    --p-apple:    #9AA6B2;
+    --p-det:      #9C8BFF;
+    --p-nixpkgs:  #6BB3E8;
+    --p-darwin:   #3FC7B4;
+    --p-orb:      #F0A055;
+    --p-you:      #EC7BA8;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-jp);
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  [data-who]           { --c: var(--p-apple); }
+  [data-who="det"]     { --c: var(--p-det); }
+  [data-who="nixpkgs"] { --c: var(--p-nixpkgs); }
+  [data-who="darwin"]  { --c: var(--p-darwin); }
+  [data-who="orb"]     { --c: var(--p-orb); }
+  [data-who="you"]     { --c: var(--p-you); }
+
+  /* ---------- deck chrome ---------- */
+
+  .deck {
+    min-height: 100svh;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .deck-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px clamp(16px, 4vw, 40px);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .brand {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .deck-top .sep { width: 1px; height: 14px; background: var(--line); }
+  .deck-top .name { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+
+  .rail { display: flex; gap: 4px; margin-left: auto; padding: 0; list-style: none; }
+
+  .rail button {
+    width: 16px; height: 6px; padding: 0; border: 0;
+    border-radius: 999px; background: var(--line); cursor: pointer;
+    transition: background .18s ease, width .18s ease;
+  }
+
+  .rail button:hover { background: var(--muted); }
+  .rail button[aria-current="true"] { background: var(--accent); width: 28px; }
+
+  .stage { overflow-y: auto; padding: clamp(22px, 3.5vw, 48px) clamp(16px, 4vw, 40px); }
+
+  .slide { display: none; }
+
+  .slide.is-active {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 2.4vw, 28px);
+    width: 100%;
+    max-width: 1060px;
+    margin-inline: auto;
+    animation: rise .32s cubic-bezier(.2, .7, .3, 1);
+  }
+
+  @keyframes rise {
+    from { opacity: .55; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide.is-active { animation: none; }
+    .rail button { transition: none; }
+  }
+
+  .deck-nav {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px clamp(16px, 4vw, 40px);
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .deck-nav button {
+    font-family: var(--font-mono); font-size: 13px; padding: 6px 14px;
+    color: var(--ink-2); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: var(--r-sm); cursor: pointer;
+  }
+
+  .deck-nav button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .deck-nav button:disabled { opacity: .38; cursor: default; }
+
+  .counter {
+    font-family: var(--font-mono); font-size: 13px;
+    font-variant-numeric: tabular-nums; color: var(--muted);
+  }
+
+  .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- typography ---------- */
+
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0;
+  }
+
+  h1 {
+    font-size: clamp(30px, 5vw, 52px); font-weight: 900; line-height: 1.2;
+    letter-spacing: -.01em; text-wrap: balance; margin: 0;
+  }
+
+  h2 {
+    font-size: clamp(21px, 2.8vw, 30px); font-weight: 700;
+    line-height: 1.35; text-wrap: balance; margin: 0;
+  }
+
+  h3 { font-size: 15px; font-weight: 700; margin: 0; }
+
+  p { margin: 0; max-width: 68ch; }
+
+  .lead { font-size: clamp(15px, 1.5vw, 17px); color: var(--ink-2); }
+
+  .slide-head {
+    display: flex; flex-direction: column; gap: 6px;
+    padding-bottom: 14px; border-bottom: 2px solid var(--ink);
+  }
+
+  strong { font-weight: 700; }
+  code { font-family: var(--font-mono); font-size: .93em; }
+
+  /* ---------- the arc: where you are right now ---------- */
+
+  .arc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: stretch;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  .arc li {
+    --s: var(--todo);
+    flex: 1 1 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--s);
+    border-radius: 0 0 var(--r-sm) var(--r-sm);
+  }
+
+  .arc li[data-state="done"] { --s: var(--ok); }
+  .arc li[data-state="now"]  { --s: var(--now); background: color-mix(in srgb, var(--now) 9%, var(--surface)); }
+
+  .arc .mark {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    color: var(--s);
+  }
+
+  .arc .step { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .arc .sub  { font-size: 12px; color: var(--muted); }
+
+  /* ---------- cards ---------- */
+
+  .grid { display: grid; gap: 12px; }
+  .cols-2 { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+  .cols-3 { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+
+  .card {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 16px 18px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--r-md);
+  }
+
+  .card p { font-size: 14px; color: var(--ink-2); }
+
+  .card .sig {
+    font-family: var(--font-mono); font-size: 15px; font-weight: 600;
+    color: var(--ink); word-break: break-all;
+  }
+
+  .who {
+    display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .04em; padding: 2px 8px; color: var(--c);
+    background: color-mix(in srgb, var(--c) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 34%, transparent);
+    border-radius: 999px; white-space: nowrap;
+  }
+
+  .who::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+
+  /* ---------- terminal ---------- */
+
+  .term {
+    font-family: var(--font-mono);
+    font-size: clamp(12px, 1.15vw, 13.5px);
+    line-height: 1.8; color: var(--term-fg); background: var(--term-bg);
+    border: 1px solid var(--term-line); border-radius: var(--r-md);
+    padding: 16px 18px; margin: 0; overflow-x: auto; white-space: pre;
+  }
+
+  .term .dollar { color: var(--term-dim); user-select: none; }
+  .term .cmt { color: var(--term-dim); }
+  .term .ok  { color: var(--term-ok); }
+  .term .bad { color: var(--term-bad); }
+  .term .hl  { color: var(--term-hl); }
+
+  /* the remedy block: a terminal that is an instruction, not a transcript */
+  .fix {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--ok);
+    border-left: 4px solid var(--ok);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+  }
+
+  .fix .tag {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ok);
+  }
+
+  .fix .run {
+    font-family: var(--font-mono);
+    font-size: clamp(14px, 1.7vw, 19px);
+    font-weight: 500;
+    color: var(--term-fg);
+    background: var(--term-bg);
+    border-radius: var(--r-sm);
+    padding: 12px 16px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .fix .run .dollar { color: var(--term-dim); user-select: none; margin-right: 8px; }
+  .fix p { font-size: 14px; color: var(--ink-2); }
+
+  /* ---------- table ---------- */
+
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+  th {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .1em; text-transform: uppercase; text-align: left;
+    color: var(--muted); padding: 0 14px 8px 0;
+    border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 14px 11px 0; border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+
+  td:first-child { color: var(--ink); }
+  tr:last-child td { border-bottom: 0; }
+
+  .note {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 14px 18px; background: var(--surface-2);
+    border-left: 3px solid var(--accent); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  }
+
+  .note .tag {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--accent);
+  }
+
+  .note p { font-size: 14px; }
+
+  .bullets { margin: 0; padding-left: 1.15em; display: flex; flex-direction: column; gap: 7px; }
+  .bullets li { font-size: 14.5px; color: var(--ink-2); }
+
+  .fine { font-size: 13px; color: var(--muted); }
+
+  /* checklist */
+  .check { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+  .check li {
+    display: grid; grid-template-columns: 22px 1fr; gap: 12px;
+    padding: 11px 0; border-bottom: 1px solid var(--line-soft);
+    font-size: 14.5px; color: var(--ink-2);
+  }
+
+  .check li:last-child { border-bottom: 0; }
+
+  .check li::before {
+    content: "□"; font-family: var(--font-mono); font-size: 15px;
+    color: var(--muted); line-height: 1.6;
+  }
+
+  .check li[data-done="true"]::before { content: "✓"; color: var(--ok); font-weight: 600; }
+
+  @media (max-width: 620px) {
+    .hint { display: none; }
+    .arc li { flex-basis: 100%; }
+  }
+</style>
+
+<div class="deck">
+  <header class="deck-top">
+    <span class="brand">my_infra</span>
+    <span class="sep"></span>
+    <span class="name">Go が見つからない</span>
+    <nav class="rail" id="rail" aria-label="スライド"></nav>
+  </header>
+
+  <main class="stage" id="stage">
+
+    <!-- 01 -->
+    <section class="slide">
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <p class="eyebrow">nix-darwin 導入の翌日 · 2026-09-10</p>
+        <h1>Go を入れたのに <code>command not found</code></h1>
+        <p class="lead">公式インストーラ (.pkg) で Go 1.27.1 を入れた。インストールは成功している。それなのに <code>go</code> が見つからない。<br>壊したのは Go ではなく、<strong>前日に入れた nix-darwin</strong>だった。</p>
+      </div>
+
+      <ol class="arc">
+        <li data-state="done">
+          <span class="mark">✓ 完了</span>
+          <span class="step">1. Go をインストール</span>
+          <span class="sub">/usr/local/go に配置された</span>
+        </li>
+        <li data-state="now">
+          <span class="mark">▶ 今ここ</span>
+          <span class="step">2. PATH に乗らない</span>
+          <span class="sub">/etc/paths.d が読まれていない</span>
+        </li>
+        <li>
+          <span class="mark">○ 未</span>
+          <span class="step">3. 原因を突き止める</span>
+          <span class="sub">nix-darwin と path_helper</span>
+        </li>
+        <li>
+          <span class="mark">○ 未</span>
+          <span class="step">4. nix で入れ直す</span>
+          <span class="sub">hosts/mini.nix に 1 行</span>
+        </li>
+      </ol>
+
+      <p class="fine">結論: .pkg で入れるのをやめて、nix-darwin の宣言に加える。</p>
+    </section>
+
+    <!-- 02 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">01 — 状況確認</p>
+        <h2>入ってはいる。呼べていないだけ</h2>
+      </div>
+
+      <p class="lead">まず「本当にインストールされているか」と「PATH に含まれているか」を切り分ける。フルパスで叩けば動くなら、問題は PATH 側にある。</p>
+
+      <pre class="term"><span class="dollar">$</span> which go
+<span class="bad">go not found</span>
+
+<span class="dollar">$</span> /usr/local/go/bin/go version
+<span class="ok">go version go1.27.1 darwin/arm64</span>          <span class="cmt"># 本体は無傷</span>
+
+<span class="dollar">$</span> pkgutil --pkg-info org.golang.go
+package-id: org.golang.go
+version: go1.27.1                              <span class="cmt"># インストーラの記録もある</span>
+
+<span class="dollar">$</span> cat /etc/paths.d/go
+<span class="ok">/usr/local/go/bin</span>                              <span class="cmt"># PATH 追加用のファイルも正しい</span>
+
+<span class="dollar">$</span> echo $PATH | tr ':' '\n' | grep go
+<span class="bad">(何も出ない)</span>                                  <span class="cmt"># なのに PATH に入っていない</span></pre>
+
+      <div class="note">
+        <span class="tag">ここまでで分かること</span>
+        <p>Go 側は全部そろっている。インストーラが置いた <code>/etc/paths.d/go</code> を <strong>誰も読んでいない</strong>。読むはずの仕組みを疑う。</p>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">02 — 仕組み</p>
+        <h2>macOS は <code>path_helper</code> で <code>/etc/paths.d</code> を PATH に足す</h2>
+      </div>
+
+      <p class="lead">.pkg 形式のインストーラは <code>/etc/paths.d/</code> に 1 行のファイルを置くだけで、PATH の編集はしない。実際に PATH へ足すのは、ログインシェル起動時に <code>/etc/zprofile</code> から呼ばれる <code>path_helper</code> の役目。</p>
+
+      <pre class="term">ログインシェル (zsh -l) が起動
+   │
+   ├─ /etc/zshenv
+   ├─ /etc/zprofile                <span class="cmt"># ← macOS 標準版はここで path_helper を呼ぶ</span>
+   │     │
+   │     └─ eval `/usr/libexec/path_helper -s`
+   │            │
+   │            ├─ /etc/paths      を読む   <span class="cmt"># /usr/bin /bin /usr/sbin /sbin /usr/local/bin</span>
+   │            └─ /etc/paths.d/*  を読む   <span class="cmt"># go, Wireshark, com.vmware.fusion.public ...</span>
+   │                                        <span class="cmt">↑ ここで /usr/local/go/bin が PATH に入るはず</span>
+   ├─ /etc/zshrc
+   └─ ~/.zshrc</pre>
+
+      <div class="grid cols-2">
+        <div class="card" data-who="apple">
+          <span class="who" data-who="apple">macOS 標準の /etc/zprofile</span>
+          <p><code>if [ -x /usr/libexec/path_helper ]; then eval `/usr/libexec/path_helper -s`; fi</code> という 3 行が本体。これがあるから .pkg で入れたツールは何もしなくても使える。</p>
+        </div>
+        <div class="card" data-who="darwin">
+          <span class="who" data-who="darwin">nix-darwin の /etc/zprofile</span>
+          <p><code>/etc/static/zprofile</code> への symlink に置き換わる。中身は <code>zprofile.local</code> を読むだけで、<strong><code>path_helper</code> の呼び出しがない</strong>。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">03 — 原因</p>
+        <h2>前日の <code>switch</code> が <code>/etc/zprofile</code> を差し替えていた</h2>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> ls -la /etc/zprofile*
+lrwxr-xr-x  root  wheel   <span class="hl">9月  9 21:08</span> /etc/zprofile -> /etc/static/zprofile     <span class="cmt"># nix-darwin 版</span>
+-r--r--r--  root  wheel   8月 13 11:51 /etc/zprofile.before-nix-darwin            <span class="cmt"># 退避された元ファイル</span>
+
+<span class="dollar">$</span> grep -rn path_helper /etc/static/
+<span class="bad">(何も出ない)</span>                                     <span class="cmt"># nix-darwin の生成物には一切ない</span>
+
+<span class="dollar">$</span> grep -n path_helper /etc/zprofile.before-nix-darwin
+<span class="ok">11:	eval `/usr/libexec/path_helper -s`</span>          <span class="cmt"># 元ファイルにはある</span>
+
+<span class="dollar">$</span> date -r $(pkgutil --pkg-info org.golang.go | awk '/install-time/{print $2}')
+<span class="hl">2026年 9月10日 00時27分</span>                          <span class="cmt"># Go を入れたのは差し替えの 3 時間後</span></pre>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>日時</th><th>出来事</th><th>結果</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>9/9 21:08</td>
+              <td><code>darwin-rebuild switch</code> (OrbStack 導入)</td>
+              <td><code>/etc/zprofile</code> が nix-darwin 版になり、<code>path_helper</code> が呼ばれなくなる</td>
+            </tr>
+            <tr>
+              <td>9/10 00:27</td>
+              <td>Go 1.27.1 の .pkg をインストール</td>
+              <td><code>/etc/paths.d/go</code> は作られたが、誰にも読まれない</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <span class="tag">巻き添え</span>
+        <p>Go だけの問題ではない。<code>/etc/paths.d/</code> にある <strong>VMware Fusion と Wireshark の CLI も同じ状態</strong>になっている。今後 .pkg で入れるツールはすべて同じ道をたどる。</p>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">04 — なぜ呼ばないのか</p>
+        <h2>これは nix-darwin のバグではなく設計</h2>
+      </div>
+
+      <p class="lead"><code>path_helper</code> は PATH を <strong>組み直す</strong>。<code>/etc/paths</code> の中身 (システムのディレクトリ) を先頭に置き、既存の PATH はその後ろに回す。nix の狙いと真っ向から衝突する。</p>
+
+      <div class="grid cols-2">
+        <div class="card" data-who="darwin">
+          <span class="who" data-who="darwin">nix-darwin が望む順序</span>
+          <span class="sig">~/.nix-profile/bin<br>/run/current-system/sw/bin<br>/usr/local/bin  /usr/bin  /bin ...</span>
+          <p>nix で入れたコマンドが <strong>システム同梱のものより先</strong>に見つかる。同名コマンドを nix 側で差し替えるための前提。</p>
+        </div>
+        <div class="card" data-who="apple">
+          <span class="who" data-who="apple">path_helper を通したあとの順序</span>
+          <span class="sig">/usr/bin  /bin  /usr/sbin  /sbin  /usr/local/bin<br>/usr/local/go/bin ...<br>~/.nix-profile/bin  /run/current-system/sw/bin</span>
+          <p>nix のパスが <strong>末尾</strong>に押しやられる。<code>/usr/bin</code> の古い <code>zsh</code> や <code>bash</code> が nix 版に勝ってしまう。</p>
+        </div>
+      </div>
+
+      <div class="note">
+        <span class="tag">だから</span>
+        <p>nix-darwin は <code>path_helper</code> を意図的に外し、<code>/etc/zshenv</code> から自前の <code>set-environment</code> で PATH を固定している。<strong><code>path_helper</code> を復活させるのは、この設計を打ち消す行為</strong>になる。</p>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">05 — 選択肢</p>
+        <h2>直し方は 4 つ。どこまで nix に任せるか</h2>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>方法</th><th>やること</th><th>直る範囲</th><th>評価</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>~/.zshrc</code> に追記</td>
+              <td><code>export PATH="$PATH:/usr/local/go/bin"</code></td>
+              <td>Go だけ</td>
+              <td>手軽だが、nix の外に設定が散らばる</td>
+            </tr>
+            <tr>
+              <td><code>environment.systemPath</code></td>
+              <td>nix-darwin の設定に <code>/usr/local/go/bin</code> を列挙</td>
+              <td>Go だけ</td>
+              <td>.pkg 版をどうしても使うならこれ。ツールごとに追記が要る</td>
+            </tr>
+            <tr>
+              <td><code>path_helper</code> 復活</td>
+              <td><code>~/.zprofile</code> などで呼び直す</td>
+              <td><code>/etc/paths.d</code> 全部</td>
+              <td>範囲は広いが、PATH の順序が崩れて nix と衝突する</td>
+            </tr>
+            <tr>
+              <td><strong>nix で Go を入れる</strong></td>
+              <td><code>environment.systemPackages</code> に <code>pkgs.go_1_27</code></td>
+              <td>Go (PATH 問題そのものが消える)</td>
+              <td><strong>推奨。</strong> nix-darwin を使う以上、ツールも nix で入れるのが筋</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>推奨を選ぶ理由</h3>
+          <p>Go は <code>/run/current-system/sw/bin</code> に入る。ここは <strong>すでに PATH にある</strong>ので、PATH を触る必要がなくなる。バージョンは <code>flake.lock</code> で固定され、別のマシンでも同じ結果になる。</p>
+        </div>
+        <div class="card">
+          <h3>同類の問題への答え</h3>
+          <p>nixpkgs にあるツールは <code>systemPackages</code> へ。GUI アプリは nix-darwin の <code>homebrew</code> モジュールで cask 管理する。Homebrew の PATH は <code>~/.zprofile</code> の <code>brew shellenv</code> で通っている。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">対処 1 / 2</p>
+        <h2><code>hosts/mini.nix</code> に 1 行足す</h2>
+      </div>
+
+      <div class="fix">
+        <span class="tag">これを追記</span>
+        <div class="run">environment.systemPackages = [ pkgs.go_1_27 ];</div>
+        <p>関数の引数に <code>pkgs</code> を受け取る必要があるので、先頭の <code>{ ... }:</code> を <code>{ pkgs, ... }:</code> に変える。</p>
+      </div>
+
+      <pre class="term"><span class="cmt"># hosts/mini.nix</span>
+<span class="bad">-{ ... }:</span>
+<span class="ok">+{ pkgs, ... }:</span>
+ {
+   nixpkgs.hostPlatform = "aarch64-darwin";
+   nix.enable = false;
+   my-infra.orbstack.enable = true;
+
+<span class="ok">+  # 開発ツール。nix で入れると /run/current-system/sw/bin に配置され PATH に乗る。
++  environment.systemPackages = [ pkgs.go_1_27 ];</span>
+
+   system.stateVersion = 6;
+ }</pre>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>なぜ <code>go</code> ではなく <code>go_1_27</code> か</h3>
+          <p>ロック済みの nixpkgs では <code>pkgs.go</code> が <strong>1.26.7</strong> を指す。.pkg で入れたのと同じ 1.27.1 にそろえるため、系列を明示した。<code>go</code> のままだと <code>nix flake update</code> のたびに系列が変わりうる。</p>
+        </div>
+        <div class="card">
+          <h3>適用前に確かめる</h3>
+          <p><code>nix eval --raw '.#darwinConfigurations.mini.pkgs.go_1_27.version'</code> で何が入るかを先に見ておく。<code>orbstack.nix</code> の <code>systemPackages</code> とは <strong>リストが結合される</strong>ので、上書きの心配はない。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 08 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">対処 2 / 2</p>
+        <h2>適用して、シェルを開き直す</h2>
+      </div>
+
+      <div class="fix">
+        <span class="tag">これを実行</span>
+        <div class="run"><span class="dollar">$</span>sudo darwin-rebuild switch --flake .#mini</div>
+        <p><code>my_infra</code> のルートで実行する。<code>sudo</code> が要るのは <code>/etc</code> と <code>/run/current-system</code> を書き換えるため。</p>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> sudo darwin-rebuild switch --flake .#mini
+building the system configuration...
+<span class="ok">setting up /etc...</span>
+...
+<span class="dollar">$</span> exec zsh -l                               <span class="cmt"># PATH は起動時にしか読まれない (前回と同じ)</span>
+
+<span class="dollar">$</span> which go
+<span class="ok">/run/current-system/sw/bin/go</span>              <span class="cmt"># /usr/local/go ではなく nix 側</span>
+<span class="dollar">$</span> go version
+<span class="ok">go version go1.27.1 darwin/arm64</span>
+<span class="dollar">$</span> readlink /run/current-system/sw/bin/go
+/nix/store/akbps6r...-go-1.27.1/bin/go</pre>
+
+      <div class="note">
+        <span class="tag">.pkg 版はもう要らない</span>
+        <p><code>/usr/local/go</code> と <code>/etc/paths.d/go</code> はどこからも参照されなくなった。残しておいても害はないが、消すなら <code>sudo rm -rf /usr/local/go /etc/paths.d/go</code>。<code>pkgutil --forget org.golang.go</code> でインストーラの記録も消せる。</p>
+      </div>
+    </section>
+
+    <!-- 09 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">06 — 確認</p>
+        <h2>ここまで通れば完了</h2>
+      </div>
+
+      <ul class="check">
+        <li data-done="true"><code>/usr/local/go/bin/go version</code> が動く (本体は無事)</li>
+        <li data-done="true"><code>ls -la /etc/zprofile</code> が <code>/etc/static/zprofile</code> への symlink になっている (原因の確定)</li>
+        <li data-done="true"><code>hosts/mini.nix</code> に <code>pkgs.go_1_27</code> を追記し、<code>{ pkgs, ... }:</code> に変える</li>
+        <li data-done="true"><code>nix build .#darwinConfigurations.mini.system</code> が通る</li>
+        <li data-done="true"><code>sudo darwin-rebuild switch --flake .#mini</code> がエラーなく終わる</li>
+        <li data-done="true"><code>exec zsh -l</code> のあと <code>which go</code> が <code>/run/current-system/sw/bin/go</code> を返す</li>
+        <li>不要なら <code>/usr/local/go</code> と <code>/etc/paths.d/go</code> を削除する</li>
+      </ul>
+
+      <p class="fine">上 6 つは実施済み。最後の削除は任意。</p>
+    </section>
+
+    <!-- 10 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">07 — 切り分け</p>
+        <h2>同じ症状が出たときの見分け方</h2>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr><th>症状</th><th>原因</th><th>対処</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>.pkg で入れた CLI が <code>command not found</code></td>
+              <td><code>/etc/paths.d</code> が読まれていない</td>
+              <td>nixpkgs にあれば <code>systemPackages</code> へ。なければ <code>environment.systemPath</code> に追記</td>
+            </tr>
+            <tr>
+              <td>フルパスなら動く</td>
+              <td>PATH の問題であって、インストールは成功している</td>
+              <td>再インストールしない。PATH 側を見る</td>
+            </tr>
+            <tr>
+              <td><code>switch</code> 後も同じシェルで通らない</td>
+              <td>PATH は起動時にしか読まれない</td>
+              <td><code>exec zsh -l</code></td>
+            </tr>
+            <tr>
+              <td><code>pkgs.go</code> が古い</td>
+              <td>nixpkgs の <code>go</code> は 1 世代前を指すことがある</td>
+              <td><code>go_1_27</code> のように系列を明示する / <code>nix flake update</code></td>
+            </tr>
+            <tr>
+              <td>プロジェクトごとに Go の版を変えたい</td>
+              <td>システム全体の設定では 1 つしか置けない</td>
+              <td>各リポジトリの <code>flake.nix</code> に devShell を書き <code>nix develop</code></td>
+            </tr>
+            <tr>
+              <td>適用後に調子が悪い</td>
+              <td>直前の変更が原因</td>
+              <td><code>sudo darwin-rebuild --rollback</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">08 — 教訓</p>
+        <h2>nix-darwin を入れた日から、インストール方法は 1 つに絞る</h2>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card">
+          <h3>.pkg インストーラは信用しない</h3>
+          <p>「インストール完了」と出ても、PATH に乗せる仕組みが nix-darwin 環境では動いていない。<strong>入れた直後に <code>which</code> で確かめる</strong>癖をつける。</p>
+        </div>
+        <div class="card">
+          <h3>ツールの置き場は 2 つだけ</h3>
+          <p>CLI は <code>environment.systemPackages</code>、GUI は <code>homebrew.casks</code>。どちらも <code>my_infra</code> の宣言に残るので、次のマシンでも同じ環境が再現できる。</p>
+        </div>
+        <div class="card">
+          <h3>調べる順番</h3>
+          <p>フルパスで動くか → <code>/etc/paths.d</code> にあるか → <code>/etc/zprofile</code> が symlink か。この 3 手で「nix-darwin が原因」まで 1 分で着く。</p>
+        </div>
+        <div class="card">
+          <h3>元に戻したくなったら</h3>
+          <p>macOS 標準の設定は <code>/etc/zprofile.before-nix-darwin</code> などに退避されている。<code>darwin-uninstaller</code> がこれを戻す。</p>
+        </div>
+      </div>
+
+      <p class="fine">nix-darwin の適用手順は <code>docs/darwin-rebuild.html</code>、適用後の PATH 反映は <code>docs/orbstack-startup.html</code> を参照。 — ysksm/my_infra</p>
+    </section>
+
+  </main>
+
+  <footer class="deck-nav">
+    <button id="prev" type="button" aria-label="前のスライド">←</button>
+    <span class="counter" id="counter">01 / 11</span>
+    <button id="next" type="button" aria-label="次のスライド">→</button>
+    <span class="hint">← → / スペースキーでも移動できます</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var rail = document.getElementById('rail');
+    var counter = document.getElementById('counter');
+    var prev = document.getElementById('prev');
+    var next = document.getElementById('next');
+    var stage = document.getElementById('stage');
+    var index = 0;
+
+    var dots = slides.map(function (_, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', (i + 1) + ' 枚目へ');
+      b.addEventListener('click', function () { go(i); });
+      rail.appendChild(b);
+      return b;
+    });
+
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+    function go(n) {
+      index = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach(function (s, i) { s.classList.toggle('is-active', i === index); });
+      dots.forEach(function (d, i) { d.setAttribute('aria-current', i === index ? 'true' : 'false'); });
+      counter.textContent = pad(index + 1) + ' / ' + pad(slides.length);
+      prev.disabled = index === 0;
+      next.disabled = index === slides.length - 1;
+      stage.scrollTop = 0;
+      if (location.hash !== '#' + (index + 1)) {
+        history.replaceState(null, '', '#' + (index + 1));
+      }
+    }
+
+    prev.addEventListener('click', function () { go(index - 1); });
+    next.addEventListener('click', function () { go(index + 1); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { go(index + 1); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { go(index - 1); e.preventDefault(); }
+      else if (e.key === 'Home') { go(0); e.preventDefault(); }
+      else if (e.key === 'End') { go(slides.length - 1); e.preventDefault(); }
+    });
+
+    var start = parseInt((location.hash || '').slice(1), 10);
+    go(isNaN(start) ? 0 : start - 1);
+  })();
+</script>
