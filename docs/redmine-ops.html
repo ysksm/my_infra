@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<title>Redmine を macOS で回す</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Zen+Kaku+Gothic+New:wght@400;500;700;900&display=swap">
+
+<style>
+  :root {
+    --paper:     #E7ECF2;
+    --surface:   #FFFFFF;
+    --surface-2: #F1F4F8;
+    --ink:       #131A24;
+    --ink-2:     #414E5C;
+    --muted:     #6D7A88;
+    --line:      #CFD8E2;
+    --line-soft: #E0E6ED;
+    --accent:    #1F6FB2;
+
+    --ok:        #17795A;
+    --now:       #B26206;
+    --todo:      #8894A1;
+
+    --term-bg:   #101820;
+    --term-fg:   #D7E0EA;
+    --term-dim:  #7C8B9B;
+    --term-line: #24313E;
+    --term-ok:   #6FD09B;
+    --term-bad:  #FF8A7A;
+    --term-hl:   #F0C169;
+
+    --p-apple:    #5C6874;
+    --p-det:      #5B44D9;
+    --p-nixpkgs:  #1F6FB2;
+    --p-darwin:   #0B8476;
+    --p-orb:      #BF5F10;
+    --p-you:      #A83766;
+    --p-redmine:  #B7352A;
+    --p-pg:       #336791;
+
+    --r-sm: 4px;
+    --r-md: 8px;
+
+    --font-jp: "Zen Kaku Gothic New", "Hiragino Sans", "Yu Gothic", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --paper:     #0F151C;
+      --surface:   #161E27;
+      --surface-2: #1B242E;
+      --ink:       #E6ECF3;
+      --ink-2:     #B4C0CD;
+      --muted:     #8493A2;
+      --line:      #2A3642;
+      --line-soft: #222D38;
+      --accent:    #6BB3E8;
+
+      --ok:        #56C98D;
+      --now:       #F0B25C;
+      --todo:      #71808E;
+
+      --term-bg:   #070C11;
+      --term-line: #1B252F;
+
+      --p-apple:    #9AA6B2;
+      --p-det:      #9C8BFF;
+      --p-nixpkgs:  #6BB3E8;
+      --p-darwin:   #3FC7B4;
+      --p-orb:      #F0A055;
+      --p-you:      #EC7BA8;
+      --p-redmine:  #F07B6E;
+      --p-pg:       #7FB0E0;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --paper:     #0F151C;
+    --surface:   #161E27;
+    --surface-2: #1B242E;
+    --ink:       #E6ECF3;
+    --ink-2:     #B4C0CD;
+    --muted:     #8493A2;
+    --line:      #2A3642;
+    --line-soft: #222D38;
+    --accent:    #6BB3E8;
+
+    --ok:        #56C98D;
+    --now:       #F0B25C;
+    --todo:      #71808E;
+
+    --term-bg:   #070C11;
+    --term-line: #1B252F;
+
+    --p-apple:    #9AA6B2;
+    --p-det:      #9C8BFF;
+    --p-nixpkgs:  #6BB3E8;
+    --p-darwin:   #3FC7B4;
+    --p-orb:      #F0A055;
+    --p-you:      #EC7BA8;
+    --p-redmine:  #F07B6E;
+    --p-pg:       #7FB0E0;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-jp);
+    font-size: 16px;
+    line-height: 1.75;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  [data-who]           { --c: var(--p-apple); }
+  [data-who="det"]     { --c: var(--p-det); }
+  [data-who="nixpkgs"] { --c: var(--p-nixpkgs); }
+  [data-who="darwin"]  { --c: var(--p-darwin); }
+  [data-who="orb"]     { --c: var(--p-orb); }
+  [data-who="you"]     { --c: var(--p-you); }
+  [data-who="redmine"] { --c: var(--p-redmine); }
+  [data-who="pg"]      { --c: var(--p-pg); }
+  [data-who="mac"]     { --c: var(--p-apple); }
+
+  /* ---------- deck chrome ---------- */
+
+  .deck {
+    min-height: 100svh;
+    display: grid;
+    grid-template-rows: auto minmax(0, 1fr) auto;
+  }
+
+  .deck-top {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 14px clamp(16px, 4vw, 40px);
+    border-bottom: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .brand {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .deck-top .sep { width: 1px; height: 14px; background: var(--line); }
+  .deck-top .name { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+
+  .rail { display: flex; gap: 4px; margin-left: auto; padding: 0; list-style: none; }
+
+  .rail button {
+    width: 16px; height: 6px; padding: 0; border: 0;
+    border-radius: 999px; background: var(--line); cursor: pointer;
+    transition: background .18s ease, width .18s ease;
+  }
+
+  .rail button:hover { background: var(--muted); }
+  .rail button[aria-current="true"] { background: var(--accent); width: 28px; }
+
+  .stage { overflow-y: auto; padding: clamp(22px, 3.5vw, 48px) clamp(16px, 4vw, 40px); }
+
+  .slide { display: none; }
+
+  .slide.is-active {
+    display: flex;
+    flex-direction: column;
+    gap: clamp(18px, 2.4vw, 28px);
+    width: 100%;
+    max-width: 1060px;
+    margin-inline: auto;
+    animation: rise .32s cubic-bezier(.2, .7, .3, 1);
+  }
+
+  @keyframes rise {
+    from { opacity: .55; transform: translateY(6px); }
+    to   { opacity: 1; transform: none; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .slide.is-active { animation: none; }
+    .rail button { transition: none; }
+  }
+
+  .deck-nav {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px clamp(16px, 4vw, 40px);
+    border-top: 1px solid var(--line);
+    background: var(--surface);
+  }
+
+  .deck-nav button {
+    font-family: var(--font-mono); font-size: 13px; padding: 6px 14px;
+    color: var(--ink-2); background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: var(--r-sm); cursor: pointer;
+  }
+
+  .deck-nav button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+  .deck-nav button:disabled { opacity: .38; cursor: default; }
+
+  .counter {
+    font-family: var(--font-mono); font-size: 13px;
+    font-variant-numeric: tabular-nums; color: var(--muted);
+  }
+
+  .hint { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+  /* ---------- typography ---------- */
+
+  .eyebrow {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .16em; text-transform: uppercase; color: var(--muted); margin: 0;
+  }
+
+  h1 {
+    font-size: clamp(30px, 5vw, 52px); font-weight: 900; line-height: 1.2;
+    letter-spacing: -.01em; text-wrap: balance; margin: 0;
+  }
+
+  h2 {
+    font-size: clamp(21px, 2.8vw, 30px); font-weight: 700;
+    line-height: 1.35; text-wrap: balance; margin: 0;
+  }
+
+  h3 { font-size: 15px; font-weight: 700; margin: 0; }
+
+  p { margin: 0; max-width: 68ch; }
+
+  .lead { font-size: clamp(15px, 1.5vw, 17px); color: var(--ink-2); }
+
+  .slide-head {
+    display: flex; flex-direction: column; gap: 6px;
+    padding-bottom: 14px; border-bottom: 2px solid var(--ink);
+  }
+
+  strong { font-weight: 700; }
+  code { font-family: var(--font-mono); font-size: .93em; }
+
+  /* ---------- the arc: where you are right now ---------- */
+
+  .arc {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: stretch;
+    padding: 0;
+    margin: 0;
+    list-style: none;
+  }
+
+  .arc li {
+    --s: var(--todo);
+    flex: 1 1 150px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    padding: 10px 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-top: 3px solid var(--s);
+    border-radius: 0 0 var(--r-sm) var(--r-sm);
+  }
+
+  .arc li[data-state="done"] { --s: var(--ok); }
+  .arc li[data-state="now"]  { --s: var(--now); background: color-mix(in srgb, var(--now) 9%, var(--surface)); }
+
+  .arc .mark {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: .08em;
+    color: var(--s);
+  }
+
+  .arc .step { font-size: 14px; font-weight: 700; color: var(--ink); }
+  .arc .sub  { font-size: 12px; color: var(--muted); }
+
+  /* ---------- cards ---------- */
+
+  .grid { display: grid; gap: 12px; }
+  .cols-2 { grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+  .cols-3 { grid-template-columns: repeat(auto-fit, minmax(215px, 1fr)); }
+
+  .card {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 16px 18px; background: var(--surface);
+    border: 1px solid var(--line); border-radius: var(--r-md);
+  }
+
+  .card p { font-size: 14px; color: var(--ink-2); }
+
+  .card .sig {
+    font-family: var(--font-mono); font-size: 15px; font-weight: 600;
+    color: var(--ink); word-break: break-all;
+  }
+
+  .who {
+    display: inline-flex; align-items: center; gap: 6px; align-self: flex-start;
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .04em; padding: 2px 8px; color: var(--c);
+    background: color-mix(in srgb, var(--c) 13%, transparent);
+    border: 1px solid color-mix(in srgb, var(--c) 34%, transparent);
+    border-radius: 999px; white-space: nowrap;
+  }
+
+  .who::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--c); }
+
+  /* ---------- terminal ---------- */
+
+  .term {
+    font-family: var(--font-mono);
+    font-size: clamp(12px, 1.15vw, 13.5px);
+    line-height: 1.8; color: var(--term-fg); background: var(--term-bg);
+    border: 1px solid var(--term-line); border-radius: var(--r-md);
+    padding: 16px 18px; margin: 0; overflow-x: auto; white-space: pre;
+  }
+
+  .term .dollar { color: var(--term-dim); user-select: none; }
+  .term .cmt { color: var(--term-dim); }
+  .term .ok  { color: var(--term-ok); }
+  .term .bad { color: var(--term-bad); }
+  .term .hl  { color: var(--term-hl); }
+
+  /* the remedy block: a terminal that is an instruction, not a transcript */
+  .fix {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 16px 18px;
+    background: var(--surface);
+    border: 1px solid var(--ok);
+    border-left: 4px solid var(--ok);
+    border-radius: 0 var(--r-md) var(--r-md) 0;
+  }
+
+  .fix .tag {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--ok);
+  }
+
+  .fix .run {
+    font-family: var(--font-mono);
+    font-size: clamp(14px, 1.7vw, 19px);
+    font-weight: 500;
+    color: var(--term-fg);
+    background: var(--term-bg);
+    border-radius: var(--r-sm);
+    padding: 12px 16px;
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .fix .run .dollar { color: var(--term-dim); user-select: none; margin-right: 8px; }
+  .fix p { font-size: 14px; color: var(--ink-2); }
+
+  /* ---------- table ---------- */
+
+  .tbl-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+
+  th {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .1em; text-transform: uppercase; text-align: left;
+    color: var(--muted); padding: 0 14px 8px 0;
+    border-bottom: 1px solid var(--line); white-space: nowrap;
+  }
+
+  td {
+    padding: 11px 14px 11px 0; border-bottom: 1px solid var(--line-soft);
+    color: var(--ink-2); vertical-align: top;
+  }
+
+  td:first-child { color: var(--ink); }
+  tr:last-child td { border-bottom: 0; }
+
+  .note {
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 14px 18px; background: var(--surface-2);
+    border-left: 3px solid var(--accent); border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  }
+
+  .note .tag {
+    font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--accent);
+  }
+
+  .note p { font-size: 14px; }
+
+  .bullets { margin: 0; padding-left: 1.15em; display: flex; flex-direction: column; gap: 7px; }
+  .bullets li { font-size: 14.5px; color: var(--ink-2); }
+
+  .fine { font-size: 13px; color: var(--muted); }
+
+  /* checklist */
+  .check { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+
+  .check li {
+    display: grid; grid-template-columns: 22px 1fr; gap: 12px;
+    padding: 11px 0; border-bottom: 1px solid var(--line-soft);
+    font-size: 14.5px; color: var(--ink-2);
+  }
+
+  .check li:last-child { border-bottom: 0; }
+
+  .check li::before {
+    content: "□"; font-family: var(--font-mono); font-size: 15px;
+    color: var(--muted); line-height: 1.6;
+  }
+
+  .check li[data-done="true"]::before { content: "✓"; color: var(--ok); font-weight: 600; }
+
+  td.cmd { font-family: var(--font-mono); font-size: 13px; white-space: nowrap; }
+
+  .fix.warn { border-color: var(--now); border-left-color: var(--now); }
+  .fix.warn .tag { color: var(--now); }
+
+  @media (max-width: 620px) {
+    .hint { display: none; }
+    .arc li { flex-basis: 100%; }
+  }
+</style>
+
+<div class="deck">
+  <header class="deck-top">
+    <span class="brand">my_infra</span>
+    <span class="sep"></span>
+    <span class="name">Redmine を macOS で回す</span>
+    <nav class="rail" id="rail" aria-label="スライド"></nav>
+  </header>
+
+  <main class="stage" id="stage">
+
+    <!-- 01 -->
+    <section class="slide">
+      <div style="display:flex; flex-direction:column; gap:10px;">
+        <p class="eyebrow">redmine/docker-compose.yaml の運用手順 · 2026-09-14</p>
+        <h1>Redmine を macOS で回す</h1>
+        <p class="lead">OrbStack の上で <code>redmine:6</code> と <code>postgres:16</code> を動かし、<strong><code>./redminectl</code> ひとつで</strong>起動・バックアップ・更新・復旧までを回す。<br>コンテナの中身は覚えなくていい。覚えるのはサブコマンドの名前だけ。</p>
+      </div>
+
+      <ol class="arc">
+        <li data-state="done">
+          <span class="mark">1 · 一度</span>
+          <span class="step">準備</span>
+          <span class="sub">OrbStack が動いている</span>
+        </li>
+        <li data-state="done">
+          <span class="mark">2 · 一度</span>
+          <span class="step">初回セットアップ</span>
+          <span class="sub"><code>redminectl setup</code></span>
+        </li>
+        <li data-state="now">
+          <span class="mark">3 · 毎日</span>
+          <span class="step">日常運用</span>
+          <span class="sub"><code>status</code> / <code>logs</code> / <code>restart</code></span>
+        </li>
+        <li data-state="now">
+          <span class="mark">4 · 毎晩</span>
+          <span class="step">バックアップ</span>
+          <span class="sub"><code>backup</code> を launchd で</span>
+        </li>
+        <li data-state="now">
+          <span class="mark">5 · 月 1</span>
+          <span class="step">更新</span>
+          <span class="sub"><code>update</code></span>
+        </li>
+        <li>
+          <span class="mark">6 · 有事</span>
+          <span class="step">復旧</span>
+          <span class="sub"><code>restore &lt;dir&gt;</code></span>
+        </li>
+      </ol>
+
+      <p class="fine">全 13 枚。緑は一度きり、橙は繰り返し、灰は必要になったときだけ。</p>
+    </section>
+
+    <!-- 02 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">全体像</p>
+        <h2>動いているのは 4 層。触るのは一番上だけ</h2>
+      </div>
+
+      <p class="lead">macOS の上で OrbStack が Docker デーモンを動かし、その上で compose が 2 つのコンテナを並べる。<strong>状態を持つのは <code>~/srv/redmine</code> と <code>redmine/.env</code> の 2 か所</strong>。それ以外は消しても作り直せる。</p>
+
+      <pre class="term">macOS (mini)
+ │
+ ├─ OrbStack ─────────────── Docker デーモン。ログイン時に自動起動させておく
+ │    │
+ │    └─ docker compose ──── redmine/docker-compose.yaml
+ │         │
+ │         ├─ <span class="hl">redmine</span>     redmine:6      :3000 → http://127.0.0.1:3000
+ │         │     ├─ /usr/src/redmine/files          ← ~/srv/redmine/files    (添付ファイル)
+ │         │     ├─ /usr/src/redmine/plugins        ← ~/srv/redmine/plugins
+ │         │     └─ /usr/src/redmine/public/themes  ← ~/srv/redmine/themes
+ │         │
+ │         └─ <span class="hl">redmine-db</span>  postgres:16    (ポート非公開。redmine からだけ見える)
+ │               └─ /var/lib/postgresql/data       ← ~/srv/redmine/db
+ │
+ └─ redmine/.env ─────────── DB パスワードと secret_key_base。<span class="bad">git 管理外</span></pre>
+
+      <div class="grid cols-3">
+        <div class="card" data-who="orb">
+          <span class="who" data-who="orb">OrbStack</span>
+          <p>Docker デーモンそのもの。止まっていると <code>docker</code> コマンドが全部失敗する。<code>restart: always</code> のコンテナは OrbStack が上がれば勝手に戻る。</p>
+        </div>
+        <div class="card" data-who="redmine">
+          <span class="who" data-who="redmine">redmine:6</span>
+          <p>起動のたびに entrypoint が <code>db:migrate</code> を流す。更新後の migration は手動でやらなくていい。</p>
+        </div>
+        <div class="card" data-who="pg">
+          <span class="who" data-who="pg">postgres:16</span>
+          <p>healthcheck が通るまで Redmine は起動しない。バックアップは <code>pg_dump</code> をコンテナ内で実行して取る。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 03 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">1 — 準備</p>
+        <h2>OrbStack が動いていれば、それで足りる</h2>
+      </div>
+
+      <p class="lead">nix-darwin で OrbStack を入れた状態 (<code>docs/orbstack-startup.html</code>) が前提。<code>redminectl</code> は最初に <code>docker info</code> を叩いて、繋がらなければ止まる。</p>
+
+      <pre class="term"><span class="dollar">$</span> docker info --format '{{.ServerVersion}}'
+<span class="ok">29.4.0</span>                          <span class="cmt"># デーモンに繋がっている</span>
+<span class="dollar">$</span> lsof -nP -iTCP:3000 -sTCP:LISTEN
+                                <span class="cmt"># 何も出なければポート 3000 は空いている</span>
+<span class="dollar">$</span> docker compose version
+<span class="ok">Docker Compose version v5.1.2</span>   <span class="cmt"># スペース版が使えること (OrbStack 初回起動後に有効)</span></pre>
+
+      <ul class="check">
+        <li data-done="true"><span>OrbStack が起動している (メニューバーにアイコンが出ている)</span></li>
+        <li data-done="true"><span>OrbStack の設定で「ログイン時に起動」を ON にしてある — Mac を再起動しても Redmine が自動で戻るのはこの設定があるとき</span></li>
+        <li data-done="true"><span>ポート 3000 を他で使っていない (GitLab は 8080 / 8443 / 2222 なので同居できる)</span></li>
+        <li><span><code>~/srv</code> のあるディスクに空きがある。目安: DB + 添付ファイル × バックアップ世代数 (既定 14)</span></li>
+      </ul>
+
+      <div class="note">
+        <span class="tag">docker が command not found のとき</span>
+        <p>nix-darwin を適用した直後のシェルは PATH が古い。<code>exec zsh -l</code> で開き直す。<code>redminectl</code> もこのメッセージを出して止まる。</p>
+      </div>
+    </section>
+
+    <!-- 04 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">2 — 初回セットアップ</p>
+        <h2>コマンドは 1 つ。秘密情報は手で作らない</h2>
+      </div>
+
+      <div class="fix">
+        <span class="tag">一度だけ実行</span>
+        <div class="run"><span class="dollar">$</span>cd redmine &amp;&amp; ./redminectl setup</div>
+        <p>置き場の作成、<code>.env</code> の生成、起動、HTTP 200 の確認までをまとめて行う。所要 1〜2 分 (イメージの pull を含む)。</p>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>順</th><th>やること</th><th>結果</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td><code>~/srv/redmine/{files,plugins,themes,db}</code> を作る</td><td>bind mount 先が揃う。既にあれば何もしない</td></tr>
+            <tr><td>2</td><td><code>redmine/.env</code> を生成 (無いときだけ)</td><td><code>openssl rand</code> で DB パスワード 48 桁と secret_key_base 128 桁。<code>chmod 600</code></td></tr>
+            <tr><td>3</td><td><code>docker compose up -d</code></td><td>db が healthy になってから redmine が起動。初回は migration に 30 秒ほど</td></tr>
+            <tr><td>4</td><td><code>http://127.0.0.1:3000/</code> が 200 を返すまで待つ</td><td>最長 120 秒。超えたら <code>logs</code> を見るよう案内して止まる</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="grid cols-2">
+        <div class="card" data-who="you">
+          <span class="who" data-who="you">ブラウザで最初にやること</span>
+          <p><code>admin</code> / <code>admin</code> でログイン → パスワード変更を求められる → 変更。次に「管理 → 設定 → 全般」で <strong>ホスト名を <code>127.0.0.1:3000</code></strong> にしておくと、通知メールのリンクが正しくなる。</p>
+        </div>
+        <div class="card" data-who="redmine">
+          <span class="who" data-who="redmine">.env は再生成されない</span>
+          <p>2 回目以降の <code>setup</code> は既存の <code>.env</code> をそのまま使う。secret_key_base を変えるとセッションと暗号化済み設定 (LDAP パスワード等) が読めなくなるため、意図せず変わらないようにしてある。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 05 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">状態の置き場</p>
+        <h2>守るべきファイルは 5 つ。git に入るのは 0</h2>
+      </div>
+
+      <p class="lead">リポジトリには定義だけを置き、コンテナが生み出す状態はすべて <code>~/srv/redmine</code> に出す — GitLab と同じ流儀。<strong>バックアップ対象と一致させてある</strong>ので、下の表の「backup」列が ✓ のものは <code>redminectl backup</code> で自動的に拾われる。</p>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>パス</th><th>中身</th><th>git</th><th>backup</th><th>失うと</th></tr></thead>
+          <tbody>
+            <tr><td><code>~/srv/redmine/db/</code></td><td>PostgreSQL のデータ本体 (チケット・Wiki・ユーザー)</td><td>✗</td><td>✓ (pg_dump)</td><td>全チケットが消える</td></tr>
+            <tr><td><code>~/srv/redmine/files/</code></td><td>チケットや Wiki の添付ファイル</td><td>✗</td><td>✓</td><td>添付へのリンクが 404</td></tr>
+            <tr><td><code>~/srv/redmine/plugins/</code></td><td>手で置いたプラグイン</td><td>✗</td><td>✓</td><td>起動失敗 (DB にプラグインの表が残るため)</td></tr>
+            <tr><td><code>~/srv/redmine/themes/</code></td><td>手で置いたテーマ</td><td>✗</td><td>✓</td><td>見た目が既定に戻るだけ</td></tr>
+            <tr><td><code>redmine/.env</code></td><td>DB パスワード · secret_key_base</td><td>✗ (.gitignore)</td><td>✓ (<code>env</code> として)</td><td>DB に繋げない · セッション全滅</td></tr>
+            <tr><td><code>redmine/docker-compose.yaml</code></td><td>構成の定義</td><td>✓</td><td>—</td><td>git から取り直せる</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <span class="tag">置き場を変えたいとき</span>
+        <p><code>.env</code> に <code>REDMINE_DATA_DIR=/Volumes/data/redmine</code> のように書く。compose と <code>redminectl</code> の両方がこの値を見る。既に動いているなら <code>down</code> → ディレクトリごと <code>mv</code> → <code>.env</code> 編集 → <code>up</code>。</p>
+      </div>
+    </section>
+
+    <!-- 06 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">3 — 日常運用</p>
+        <h2>普段使うのは status と logs。あとは触らない</h2>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>コマンド</th><th>何が起きるか</th><th>使う場面</th></tr></thead>
+          <tbody>
+            <tr><td class="cmd">./redminectl status</td><td><code>compose ps</code> と HTTP ステータス、データ置き場、バックアップの登録状況を 1 画面に</td><td>「動いてる?」と思ったとき</td></tr>
+            <tr><td class="cmd">./redminectl logs [db]</td><td>直近 100 行から追いかける。Ctrl-C で抜ける</td><td>500 が出た · 起動しない</td></tr>
+            <tr><td class="cmd">./redminectl restart</td><td>両コンテナを再起動し、200 が返るまで待つ</td><td>設定変更後 · 挙動が怪しいとき</td></tr>
+            <tr><td class="cmd">./redminectl down</td><td>コンテナとネットワークを消す。<strong>データは残る</strong></td><td>ポートを空けたい · メンテ前</td></tr>
+            <tr><td class="cmd">./redminectl up</td><td><code>up -d</code> して 200 を待つ。<code>.env</code> が無ければ止まる</td><td><code>down</code> の後</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> ./redminectl status
+NAME         IMAGE         SERVICE   STATUS
+redmine      redmine:6     redmine   <span class="ok">Up 3 days</span>
+redmine-db   postgres:16   db        <span class="ok">Up 3 days (healthy)</span>
+
+HTTP <span class="ok">200</span>  http://127.0.0.1:3000
+data  /Users/kasamatsu/srv/redmine
+backup schedule: <span class="ok">installed</span> (com.ysksm.redmine-backup)</pre>
+
+      <div class="grid cols-2">
+        <div class="card" data-who="orb">
+          <span class="who" data-who="orb">Mac を再起動したら</span>
+          <p>OrbStack がログイン時に起動 → <code>restart: always</code> の 2 コンテナが自動で戻る。手で <code>up</code> する必要はない。戻っていなければ OrbStack の自動起動設定を疑う。</p>
+        </div>
+        <div class="card" data-who="mac">
+          <span class="who" data-who="mac">スリープ</span>
+          <p>OrbStack は VM ごとスリープする。復帰直後の数秒は応答しないことがあるが、放っておけば戻る。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 07 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">4 — バックアップ</p>
+        <h2>1 回 = 1 ディレクトリ。DB と添付と .env をセットで</h2>
+      </div>
+
+      <div class="fix">
+        <span class="tag">手動で取る</span>
+        <div class="run"><span class="dollar">$</span>./redminectl backup</div>
+        <p>Redmine を止めずに取れる。<code>pg_dump</code> はトランザクション内で一貫したスナップショットを取るので、稼働中でも安全。</p>
+      </div>
+
+      <pre class="term">~/srv/redmine-backup/
+ ├─ 20260912-030000/
+ ├─ 20260913-030000/
+ └─ 20260914-030000/            <span class="cmt"># 日付-時刻。新しいものが末尾に並ぶ</span>
+      ├─ db.sql.gz              <span class="cmt"># pg_dump --no-owner を gzip。psql で流し込める平文 SQL</span>
+      ├─ files.tar.gz           <span class="cmt"># files/ plugins/ themes/ をまとめたもの</span>
+      └─ env                    <span class="cmt"># その時点の .env のコピー (600)。復旧時に鍵が合うかの照合に使う</span></pre>
+
+      <div class="grid cols-3">
+        <div class="card">
+          <h3>世代管理</h3>
+          <p>新しい順に <strong>14 世代</strong>残し、古いものを消す。変えるなら <code>REDMINE_BACKUP_KEEP=30</code> のように環境変数で。</p>
+        </div>
+        <div class="card">
+          <h3>置き場</h3>
+          <p>既定は <code>~/srv/redmine-backup</code>。<code>REDMINE_BACKUP_DIR</code> で外付けディスクなどに向けられる。</p>
+        </div>
+        <div class="card">
+          <h3>同じ Mac に置いたままにしない</h3>
+          <p>ディスク故障には無力。<code>rsync</code> や Time Machine の対象に <code>~/srv/redmine-backup</code> を入れておく。<code>~/srv/redmine/db</code> 自体を Time Machine で拾っても、書き込み途中の壊れたコピーになりやすい。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 08 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">4 — バックアップ (自動化)</p>
+        <h2>毎晩 03:00、launchd に任せる</h2>
+      </div>
+
+      <p class="lead">macOS の定期実行は cron ではなく launchd。<code>redminectl</code> が <code>~/Library/LaunchAgents/</code> に plist を書いて登録するので、<strong>plist を手で書く必要はない</strong>。</p>
+
+      <div class="fix">
+        <span class="tag">一度だけ実行</span>
+        <div class="run"><span class="dollar">$</span>./redminectl schedule-backup</div>
+        <p>ラベルは <code>com.ysksm.redmine-backup</code>。ログは <code>~/srv/redmine-backup/launchd.log</code> に追記される。解除は <code>unschedule-backup</code>。</p>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> launchctl print gui/$(id -u)/com.ysksm.redmine-backup | grep -E 'state|last exit'
+	state = not running                 <span class="cmt"># 待機中。03:00 になると走る</span>
+	last exit code = <span class="ok">0</span>                  <span class="cmt"># 前回が成功していれば 0</span>
+
+<span class="dollar">$</span> launchctl kickstart gui/$(id -u)/com.ysksm.redmine-backup
+                                    <span class="cmt"># 今すぐ 1 回走らせて動作確認</span>
+<span class="dollar">$</span> tail -3 ~/srv/redmine-backup/launchd.log
+==> 古い世代を削除 (残す: 14)
+  removed /Users/kasamatsu/srv/redmine-backup/20260831-030000
+==> 完了: 38M  /Users/kasamatsu/srv/redmine-backup/20260914-030000</pre>
+
+      <div class="grid cols-2">
+        <div class="card" data-who="mac">
+          <span class="who" data-who="mac">launchd の PATH は空っぽ</span>
+          <p>そのままだと <code>docker</code> が見つからない。plist には <code>/run/current-system/sw/bin</code> (nix-darwin) を先頭にした PATH を明示してある。Homebrew 版に切り替えても <code>/opt/homebrew/bin</code> が入っているので動く。</p>
+        </div>
+        <div class="card" data-who="mac">
+          <span class="who" data-who="mac">03:00 に Mac が寝ていたら</span>
+          <p><code>StartCalendarInterval</code> は起きたときに 1 回まとめて実行される。スキップはされない。確実に取りたければ「システム設定 → 省エネルギー」でスリープさせない。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 09 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">6 — 復旧</p>
+        <h2>戻すのも 1 コマンド。ただし DB は作り直す</h2>
+      </div>
+
+      <div class="fix warn">
+        <span class="tag">確認プロンプトあり · 現在の DB を捨てる</span>
+        <div class="run"><span class="dollar">$</span>./redminectl restore ~/srv/redmine-backup/20260913-030000</div>
+        <p><code>y</code> を打つまで何もしない。<code>backup</code> で作ったディレクトリをそのまま渡す。</p>
+      </div>
+
+      <pre class="term">1. redmine を stop            <span class="cmt"># DB への接続を切る (繋がったままだと DROP できない)</span>
+2. db だけ up、pg_isready を待つ
+3. DROP DATABASE → CREATE DATABASE
+4. db.sql.gz を psql に流す
+5. files/ plugins/ themes/ を消して tar を展開
+6. redmine を up、200 を待つ    <span class="cmt"># 起動時の migration がスキーマ差分を埋める</span></pre>
+
+      <div class="grid cols-2">
+        <div class="card" data-who="redmine">
+          <span class="who" data-who="redmine">.env が違うと警告が出る</span>
+          <p>バックアップ内の <code>env</code> と今の <code>.env</code> を <code>cmp</code> して、違えば止まらずに警告だけ出す。secret_key_base が違うと DB は戻っても暗号化済み設定が読めない。<strong>別の Mac に移すときは先に <code>cp &lt;dir&gt;/env redmine/.env</code></strong>。</p>
+        </div>
+        <div class="card" data-who="you">
+          <span class="who" data-who="you">新しい Mac へ引っ越す手順</span>
+          <p>① バックアップディレクトリをコピー → ② リポジトリを clone → ③ <code>cp &lt;dir&gt;/env redmine/.env</code> → ④ <code>setup</code> (空で起動) → ⑤ <code>restore &lt;dir&gt;</code>。</p>
+        </div>
+      </div>
+
+      <p class="fine">復旧の練習は年に 1 回はやる。バックアップの価値は restore が通って初めて確定する。</p>
+    </section>
+
+    <!-- 10 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">5 — 更新</p>
+        <h2>バックアップ → pull → up。migration は勝手に走る</h2>
+      </div>
+
+      <div class="fix">
+        <span class="tag">月 1 回、または脆弱性情報が出たとき</span>
+        <div class="run"><span class="dollar">$</span>./redminectl update</div>
+        <p>最初に <code>backup</code> を必ず取る。失敗しても直前のバックアップに <code>restore</code> で戻れる。</p>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> ./redminectl update
+==> DB をダンプ → ~/srv/redmine-backup/20260914-101502/db.sql.gz
+==> イメージを更新
+ Image redmine:6      <span class="ok">Pulled</span>              <span class="cmt"># 6.0.x → 6.1.x のようなマイナー更新はここで入る</span>
+ Image postgres:16    <span class="ok">Pulled</span>
+==> 再作成 (DB migration は起動時に自動実行される)
+ Container redmine    Recreated
+==> 起動完了: http://127.0.0.1:3000
+REPOSITORY   TAG   SIZE
+redmine      6     <span class="hl">651MB</span>
+postgres     16    438MB</pre>
+
+      <div class="grid cols-3">
+        <div class="card" data-who="redmine">
+          <span class="who" data-who="redmine">タグは 6 で固定</span>
+          <p><code>redmine:6</code> は 6.x 系の最新を指す。7 が出ても勝手に上がらない。メジャー更新は compose のタグを <code>7</code> に書き換えてから <code>update</code>。</p>
+        </div>
+        <div class="card" data-who="pg">
+          <span class="who" data-who="pg">postgres は 16 のまま</span>
+          <p>PostgreSQL のメジャー更新は <code>pg_upgrade</code> が必要で <code>pull</code> では上がらない。やるなら <code>backup</code> → タグ変更 → <code>~/srv/redmine/db</code> を空に → <code>restore</code>。</p>
+        </div>
+        <div class="card">
+          <h3>戻したいとき</h3>
+          <p>compose のタグを前のバージョン (例 <code>redmine:6.0.5</code>) に固定 → <code>restore</code> で update 直前のバックアップに戻す。migration は不可逆なので DB ごと戻す。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 11 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">プラグイン · テーマ</p>
+        <h2>置いて、plugins を叩く</h2>
+      </div>
+
+      <pre class="term"><span class="dollar">$</span> cd ~/srv/redmine/plugins
+<span class="dollar">$</span> git clone https://github.com/example/redmine_example.git
+<span class="dollar">$</span> cd - &amp;&amp; ./redminectl plugins
+==> プラグインの migration
+==> Redmine を再起動して読み込ませる
+==> 起動完了: http://127.0.0.1:3000</pre>
+
+      <div class="grid cols-2">
+        <div class="card" data-who="redmine">
+          <span class="who" data-who="redmine">plugins がやること</span>
+          <p><code>rake redmine:plugins:migrate</code> をコンテナ内で実行してから redmine を再起動する。<code>SECRET_KEY_BASE</code> を compose で直接渡しているので、<code>exec</code> 経由の rake でも鍵の不足で落ちない。</p>
+        </div>
+        <div class="card" data-who="redmine">
+          <span class="who" data-who="redmine">gem を要求するプラグインは対象外</span>
+          <p>公式イメージは起動時に <code>bundle install</code> を試みるが、ネイティブ拡張のビルドが要るものは失敗する。その場合は <code>Dockerfile</code> を書いてイメージを焼く必要がある — この構成では扱わない。</p>
+        </div>
+        <div class="card">
+          <h3>テーマ</h3>
+          <p><code>~/srv/redmine/themes/</code> に置くだけ。migration は不要。「管理 → 設定 → 表示」で選ぶ。反映されなければ <code>restart</code>。</p>
+        </div>
+        <div class="card">
+          <h3>外すとき</h3>
+          <p>先に <code>rake redmine:plugins:migrate NAME=redmine_example VERSION=0</code> で表を消してからディレクトリを削除。順番を逆にすると起動時に落ちる。</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- 12 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">トラブルシュート</p>
+        <h2>症状から引く</h2>
+      </div>
+
+      <div class="tbl-wrap">
+        <table>
+          <thead><tr><th>症状</th><th>原因</th><th>対処</th></tr></thead>
+          <tbody>
+            <tr><td><code>error: Docker デーモンに繋がらない</code></td><td>OrbStack が起動していない</td><td><code>open -a OrbStack</code> → 数秒待って再実行</td></tr>
+            <tr><td><code>error: docker が PATH にない</code></td><td>nix-darwin 適用後のシェルが古い</td><td><code>exec zsh -l</code></td></tr>
+            <tr><td><code>REDMINE_DB_PASSWORD: set in redmine/.env</code></td><td><code>.env</code> が無い、または変数名の typo</td><td><code>setup</code> を実行。既にある場合は <code>.env.example</code> と見比べる</td></tr>
+            <tr><td><code>Bind for 0.0.0.0:3000 failed: port is already allocated</code></td><td>別のプロセスが 3000 を使っている</td><td><code>lsof -nP -iTCP:3000</code> で特定。譲れないなら compose の <code>ports</code> を <code>"3001:3000"</code> に</td></tr>
+            <tr><td><code>redmine-db</code> が <code>unhealthy</code> のまま</td><td>パスワードを変えたが DB は旧パスワードで初期化済み</td><td><code>.env</code> を元に戻す。作り直すなら <code>down</code> → <code>~/srv/redmine/db</code> を退避 → <code>up</code></td></tr>
+            <tr><td>ログインが全員はじかれる · <code>Invalid authenticity token</code></td><td>secret_key_base が変わった</td><td>バックアップの <code>env</code> から <code>.env</code> を戻して <code>restart</code></td></tr>
+            <tr><td><code>500 Internal Server Error</code> 起動直後のみ</td><td>migration 実行中</td><td>30 秒待つ。続くなら <code>logs</code> で <code>Migrating to</code> の後のエラーを読む</td></tr>
+            <tr><td>03:00 のバックアップが取れていない</td><td>Mac がスリープ · launchd の PATH</td><td><code>launchctl print gui/$(id -u)/com.ysksm.redmine-backup</code> の <code>last exit code</code> と <code>launchd.log</code></td></tr>
+            <tr><td>添付ファイルが 404</td><td><code>files/</code> のマウント先が違う</td><td><code>status</code> の <code>data</code> 行と <code>.env</code> の <code>REDMINE_DATA_DIR</code> を照合</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="note">
+        <span class="tag">全部ダメなら</span>
+        <p><code>down</code> → <code>~/srv/redmine</code> を丸ごと退避 → <code>setup</code> → <code>restore &lt;最新バックアップ&gt;</code>。定義は git に、状態はバックアップにあるので、この 4 手で必ず戻る。</p>
+      </div>
+    </section>
+
+    <!-- 13 -->
+    <section class="slide">
+      <div class="slide-head">
+        <p class="eyebrow">まとめ</p>
+        <h2>運用チェックリスト</h2>
+      </div>
+
+      <div class="grid" style="grid-template-columns: repeat(auto-fit, minmax(min(400px, 100%), 1fr));">
+        <div class="card">
+          <h3>初回 (一度だけ)</h3>
+          <ul class="check">
+            <li><span>OrbStack「ログイン時に起動」を ON</span></li>
+            <li><span><code>./redminectl setup</code></span></li>
+            <li><span>admin のパスワード変更、ホスト名設定</span></li>
+            <li><span><code>./redminectl schedule-backup</code></span></li>
+            <li><span><code>launchctl kickstart</code> で 1 回走らせ、<code>launchd.log</code> を確認</span></li>
+            <li><span><code>~/srv/redmine-backup</code> を Time Machine / rsync の対象に</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>月 1 回</h3>
+          <ul class="check">
+            <li><span><code>./redminectl status</code> — 2 コンテナが Up、HTTP 200</span></li>
+            <li><span><code>ls ~/srv/redmine-backup | tail -3</code> — 日付が今日まで続いている</span></li>
+            <li><span><code>./redminectl update</code></span></li>
+            <li><span><code>docker image prune</code> で古いイメージを掃除</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>年 1 回</h3>
+          <ul class="check">
+            <li><span>別ディレクトリ (<code>REDMINE_DATA_DIR</code> を変えて) に <code>restore</code> を試し、ログインできることを確認</span></li>
+            <li><span>Redmine / PostgreSQL のメジャーバージョンの EOL を確認</span></li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>覚えておく数字</h3>
+          <ul class="bullets">
+            <li>Web: <code>127.0.0.1:3000</code></li>
+            <li>データ: <code>~/srv/redmine</code> · バックアップ: <code>~/srv/redmine-backup</code> (14 世代)</li>
+            <li>自動バックアップ: 毎日 03:00 · <code>com.ysksm.redmine-backup</code></li>
+            <li>起動待ち上限: 120 秒</li>
+          </ul>
+        </div>
+      </div>
+
+      <p class="fine">compose 定義は <code>redmine/docker-compose.yaml</code>、スクリプトは <code>redmine/redminectl</code>。 — ysksm/my_infra</p>
+    </section>
+
+  </main>
+
+  <footer class="deck-nav">
+    <button id="prev" type="button" aria-label="前のスライド">←</button>
+    <span class="counter" id="counter">01 / 13</span>
+    <button id="next" type="button" aria-label="次のスライド">→</button>
+    <span class="hint">← → / スペースキーでも移動できます</span>
+  </footer>
+</div>
+
+<script>
+  (function () {
+    var slides = Array.prototype.slice.call(document.querySelectorAll('.slide'));
+    var rail = document.getElementById('rail');
+    var counter = document.getElementById('counter');
+    var prev = document.getElementById('prev');
+    var next = document.getElementById('next');
+    var stage = document.getElementById('stage');
+    var index = 0;
+
+    var dots = slides.map(function (_, i) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', (i + 1) + ' 枚目へ');
+      b.addEventListener('click', function () { go(i); });
+      rail.appendChild(b);
+      return b;
+    });
+
+    function pad(n) { return n < 10 ? '0' + n : String(n); }
+
+    function go(n) {
+      index = Math.max(0, Math.min(slides.length - 1, n));
+      slides.forEach(function (s, i) { s.classList.toggle('is-active', i === index); });
+      dots.forEach(function (d, i) { d.setAttribute('aria-current', i === index ? 'true' : 'false'); });
+      counter.textContent = pad(index + 1) + ' / ' + pad(slides.length);
+      prev.disabled = index === 0;
+      next.disabled = index === slides.length - 1;
+      stage.scrollTop = 0;
+      if (location.hash !== '#' + (index + 1)) {
+        history.replaceState(null, '', '#' + (index + 1));
+      }
+    }
+
+    prev.addEventListener('click', function () { go(index - 1); });
+    next.addEventListener('click', function () { go(index + 1); });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') { go(index + 1); e.preventDefault(); }
+      else if (e.key === 'ArrowLeft' || e.key === 'PageUp') { go(index - 1); e.preventDefault(); }
+      else if (e.key === 'Home') { go(0); e.preventDefault(); }
+      else if (e.key === 'End') { go(slides.length - 1); e.preventDefault(); }
+    });
+
+    var start = parseInt((location.hash || '').slice(1), 10);
+    go(isNaN(start) ? 0 : start - 1);
+  })();
+</script>

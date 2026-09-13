@@ -1,0 +1,256 @@
+#!/usr/bin/env bash
+# Redmine (docker compose) の運用コマンド。macOS + OrbStack で使う想定。
+#
+#   ./redminectl setup             初回セットアップ (.env 生成 → データ置き場作成 → 起動)
+#   ./redminectl up|down|restart   起動 / 停止 / 再起動
+#   ./redminectl status            コンテナと HTTP 応答の確認
+#   ./redminectl logs [service]    ログを追う (Ctrl-C で抜ける)
+#   ./redminectl backup            DB ダンプ + 添付ファイル + .env を ~/srv/redmine-backup へ
+#   ./redminectl restore <dir>     backup で作ったディレクトリから復元 (DB を作り直す)
+#   ./redminectl update            バックアップ → イメージ更新 → 再起動 (migration は自動)
+#   ./redminectl plugins           plugins/ に置いたプラグインの migration を実行
+#   ./redminectl schedule-backup   launchd で毎日 03:00 に backup を回す
+#   ./redminectl unschedule-backup 上記を解除
+#
+# 環境変数で上書きできるもの:
+#   REDMINE_DATA_DIR    ランタイムデータ (既定 ~/srv/redmine)
+#   REDMINE_BACKUP_DIR  バックアップ先   (既定 ~/srv/redmine-backup)
+#   REDMINE_BACKUP_KEEP 残す世代数       (既定 14)
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+data_dir="${REDMINE_DATA_DIR:-$HOME/srv/redmine}"
+backup_dir="${REDMINE_BACKUP_DIR:-$HOME/srv/redmine-backup}"
+keep="${REDMINE_BACKUP_KEEP:-14}"
+url="http://127.0.0.1:3000"
+label="com.ysksm.redmine-backup"
+plist="$HOME/Library/LaunchAgents/$label.plist"
+
+export REDMINE_DATA_DIR="$data_dir"
+
+log()  { printf '\033[1;34m==>\033[0m %s\n' "$*"; }
+die()  { printf '\033[1;31merror:\033[0m %s\n' "$*" >&2; exit 1; }
+
+compose() { docker compose --project-directory "$here" "$@"; }
+
+need_docker() {
+  command -v docker >/dev/null || die "docker が PATH にない。exec zsh -l でシェルを開き直す (nix-darwin 適用後)"
+  docker info >/dev/null 2>&1 || die "Docker デーモンに繋がらない。OrbStack を起動する: open -a OrbStack"
+}
+
+need_env() {
+  [ -f "$here/.env" ] || die ".env がない。./redminectl setup を先に実行する"
+}
+
+wait_ready() {
+  local i
+  log "Redmine の応答を待つ ($url)"
+  for i in $(seq 1 60); do
+    if [ "$(curl -s -o /dev/null -w '%{http_code}' "$url/" || true)" = "200" ]; then
+      log "起動完了: $url"
+      return 0
+    fi
+    sleep 3
+  done
+  die "120 秒待っても応答がない。./redminectl logs で確認する"
+}
+
+cmd_setup() {
+  need_docker
+  log "データ置き場を作成: $data_dir"
+  mkdir -p "$data_dir"/{files,plugins,themes,db}
+
+  if [ -f "$here/.env" ]; then
+    log ".env は既にある (再生成しない)"
+  else
+    log ".env を生成 (パスワードと secret_key_base は乱数)"
+    {
+      echo "REDMINE_DB_PASSWORD=$(openssl rand -hex 24)"
+      echo "REDMINE_SECRET_KEY_BASE=$(openssl rand -hex 64)"
+      [ "$data_dir" != "$HOME/srv/redmine" ] && echo "REDMINE_DATA_DIR=$data_dir"
+    } > "$here/.env"
+    chmod 600 "$here/.env"
+  fi
+
+  cmd_up
+  cat <<MSG
+
+初期ユーザーは admin / admin。初回ログインでパスワード変更を求められる。
+.env は git 管理外。紛失すると DB とセッションを復元できないので backup に含めている。
+MSG
+}
+
+cmd_up() {
+  need_docker; need_env
+  log "起動"
+  compose up -d
+  wait_ready
+}
+
+cmd_down() {
+  need_docker
+  log "停止"
+  compose down
+}
+
+cmd_restart() {
+  need_docker; need_env
+  log "再起動"
+  compose restart
+  wait_ready
+}
+
+cmd_status() {
+  need_docker
+  compose ps
+  echo
+  printf 'HTTP %s  %s\n' "$(curl -s -o /dev/null -w '%{http_code}' "$url/" || echo '---')" "$url"
+  printf 'data  %s\n' "$data_dir"
+  if [ -f "$plist" ]; then
+    printf 'backup schedule: installed (%s)\n' "$label"
+  else
+    printf 'backup schedule: not installed\n'
+  fi
+}
+
+cmd_logs() {
+  need_docker
+  compose logs -f --tail=100 "$@"
+}
+
+cmd_backup() {
+  need_docker; need_env
+  local stamp dest
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  dest="$backup_dir/$stamp"
+  mkdir -p "$dest"
+
+  log "DB をダンプ → $dest/db.sql.gz"
+  compose exec -T db pg_dump -U redmine --no-owner redmine | gzip > "$dest/db.sql.gz"
+
+  log "添付ファイル・プラグイン・テーマを固める → $dest/files.tar.gz"
+  tar -C "$data_dir" -czf "$dest/files.tar.gz" files plugins themes
+
+  cp "$here/.env" "$dest/env"
+  chmod 600 "$dest/env"
+
+  log "古い世代を削除 (残す: $keep)"
+  # macOS の head は -n -N に対応していないので sort -r + tail で古い順に切る
+  ls -1d "$backup_dir"/[0-9]* 2>/dev/null | sort -r | tail -n +"$((keep + 1))" | while read -r old; do
+    rm -rf "$old"
+    echo "  removed $old"
+  done
+
+  log "完了: $(du -sh "$dest" | cut -f1)  $dest"
+}
+
+cmd_restore() {
+  need_docker; need_env
+  local src="${1:-}"
+  [ -n "$src" ] || die "使い方: ./redminectl restore <backup dir>  (例: $backup_dir/$(ls "$backup_dir" 2>/dev/null | tail -1))"
+  [ -f "$src/db.sql.gz" ] && [ -f "$src/files.tar.gz" ] || die "$src に db.sql.gz / files.tar.gz がない"
+
+  if ! cmp -s "$src/env" "$here/.env"; then
+    echo "警告: バックアップ時の .env と現在の .env が異なる。"
+    echo "      secret_key_base が違うと暗号化済み設定 (LDAP パスワード等) が読めなくなる。"
+    echo "      必要なら cp $src/env $here/.env してから再実行する。"
+  fi
+
+  printf '現在の DB と %s/{files,plugins,themes} を %s の内容で置き換える。よいか? [y/N] ' "$data_dir" "$src"
+  read -r ans
+  [ "$ans" = "y" ] || die "中止"
+
+  log "Redmine を止める (DB 接続を切るため)"
+  compose stop redmine
+  compose up -d db
+  compose exec -T db sh -c 'until pg_isready -U redmine -d postgres -q; do sleep 1; done'
+
+  log "DB を作り直して流し込む"
+  compose exec -T db psql -U redmine -d postgres -q -c 'DROP DATABASE IF EXISTS redmine' -c 'CREATE DATABASE redmine'
+  gunzip -c "$src/db.sql.gz" | compose exec -T db psql -U redmine -d redmine -q -o /dev/null
+
+  log "ファイルを戻す"
+  rm -rf "$data_dir"/{files,plugins,themes}
+  tar -C "$data_dir" -xzf "$src/files.tar.gz"
+
+  cmd_up
+}
+
+cmd_update() {
+  need_docker; need_env
+  cmd_backup
+  log "イメージを更新"
+  compose pull
+  log "再作成 (DB migration は起動時に自動実行される)"
+  compose up -d
+  wait_ready
+  compose images
+  log "不要になった古いイメージ: docker image prune で削除できる"
+}
+
+cmd_plugins() {
+  need_docker; need_env
+  log "プラグインの migration"
+  compose exec -T redmine bundle exec rake redmine:plugins:migrate RAILS_ENV=production
+  log "Redmine を再起動して読み込ませる"
+  compose restart redmine
+  wait_ready
+}
+
+cmd_schedule_backup() {
+  mkdir -p "$backup_dir" "$(dirname "$plist")"
+  # launchd の PATH は最小なので docker の場所を明示する
+  cat > "$plist" <<PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>$label</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>$here/redminectl</string>
+    <string>backup</string>
+  </array>
+  <key>StartCalendarInterval</key>
+  <dict><key>Hour</key><integer>3</integer><key>Minute</key><integer>0</integer></dict>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/run/current-system/sw/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    <key>REDMINE_DATA_DIR</key><string>$data_dir</string>
+    <key>REDMINE_BACKUP_DIR</key><string>$backup_dir</string>
+    <key>REDMINE_BACKUP_KEEP</key><string>$keep</string>
+  </dict>
+  <key>StandardOutPath</key><string>$backup_dir/launchd.log</string>
+  <key>StandardErrorPath</key><string>$backup_dir/launchd.log</string>
+</dict>
+</plist>
+PLIST
+  launchctl bootout "gui/$(id -u)" "$plist" 2>/dev/null || true
+  launchctl bootstrap "gui/$(id -u)" "$plist"
+  log "登録した: $plist (毎日 03:00、ログは $backup_dir/launchd.log)"
+  log "今すぐ試す: launchctl kickstart gui/$(id -u)/$label"
+}
+
+cmd_unschedule_backup() {
+  [ -f "$plist" ] || die "登録されていない"
+  launchctl bootout "gui/$(id -u)" "$plist" 2>/dev/null || true
+  rm -f "$plist"
+  log "解除した"
+}
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+  setup)             cmd_setup ;;
+  up)                cmd_up ;;
+  down)              cmd_down ;;
+  restart)           cmd_restart ;;
+  status)            cmd_status ;;
+  logs)              cmd_logs "$@" ;;
+  backup)            cmd_backup ;;
+  restore)           cmd_restore "$@" ;;
+  update)            cmd_update ;;
+  plugins)           cmd_plugins ;;
+  schedule-backup)   cmd_schedule_backup ;;
+  unschedule-backup) cmd_unschedule_backup ;;
+  *) sed -n '2,15p' "$0"; exit 1 ;;
+esac

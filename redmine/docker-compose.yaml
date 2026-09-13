@@ -1,0 +1,42 @@
+services:
+  redmine:
+    image: redmine:6
+    container_name: redmine
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      REDMINE_DB_POSTGRES: db
+      REDMINE_DB_DATABASE: redmine
+      REDMINE_DB_USERNAME: redmine
+      REDMINE_DB_PASSWORD: ${REDMINE_DB_PASSWORD:?set in redmine/.env}
+      # 未設定だと起動ごとに再生成され、セッションが無効になる。
+      # REDMINE_SECRET_KEY_BASE ではなく SECRET_KEY_BASE で渡すと、entrypoint を
+      # 通らない `docker compose exec` (rake 等) でも同じ鍵が使われる
+      SECRET_KEY_BASE: ${REDMINE_SECRET_KEY_BASE:?set in redmine/.env}
+    ports:
+      # GitLab (8080/8443/2222) と衝突しないポート
+      - "3000:3000"
+    volumes:
+      # ランタイムデータはリポジトリ外 (~/srv/redmine) に置く
+      # 置き場を変えるときは REDMINE_DATA_DIR を .env で上書きする
+      - ${REDMINE_DATA_DIR:-${HOME}/srv/redmine}/files:/usr/src/redmine/files
+      - ${REDMINE_DATA_DIR:-${HOME}/srv/redmine}/plugins:/usr/src/redmine/plugins
+      - ${REDMINE_DATA_DIR:-${HOME}/srv/redmine}/themes:/usr/src/redmine/public/themes
+
+  db:
+    image: postgres:16
+    container_name: redmine-db
+    restart: always
+    environment:
+      POSTGRES_DB: redmine
+      POSTGRES_USER: redmine
+      POSTGRES_PASSWORD: ${REDMINE_DB_PASSWORD:?set in redmine/.env}
+    volumes:
+      - ${REDMINE_DATA_DIR:-${HOME}/srv/redmine}/db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U redmine -d redmine"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
