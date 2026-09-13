@@ -11,9 +11,12 @@ macOS (Apple Silicon) 向けの Nix によるインストール定義。
 | `modules/orbstack.nix` | OrbStack をインストールする nix-darwin モジュール |
 | `hosts/mini.nix` | ホスト `mini` 固有の設定 |
 | `gitlab/docker-compose.yaml` | セルフホストする GitLab CE の compose 定義 |
+| `redmine/docker-compose.yaml` | セルフホストする Redmine (PostgreSQL) の compose 定義 |
+| `redmine/redminectl` | Redmine の運用スクリプト (setup / backup / restore / update など) |
 | `docs/darwin-rebuild.html` | `darwin-rebuild` コマンドの解説スライド (ブラウザで開く) |
 | `docs/orbstack-startup.html` | 適用後に OrbStack を動かすまでの手順スライド |
 | `docs/go-path.html` | .pkg で入れた Go が `command not found` になった原因と対処のスライド |
+| `docs/redmine-ops.html` | Redmine を macOS で運用する手順のスライド (起動・バックアップ・更新・復旧) |
 
 OrbStack は nixpkgs の `orbstack` パッケージ (unfree、Apple Silicon 専用) を使用する。
 インストールされるもの:
@@ -103,6 +106,7 @@ nix flake update    # nixpkgs を更新して OrbStack のバージョンを上�
 | サービス | 配置 |
 | --- | --- |
 | GitLab | `~/srv/gitlab` (`config` / `data` / `logs`) |
+| Redmine | `~/srv/redmine` (`files` / `plugins` / `themes` / `db`) |
 
 GitLab のデータは以前 `gitlab/data` に置かれていたものを移動した。
 `gitlab-secrets.json` や SSH ホスト鍵を含むため、バージョン管理には入れないこと。
@@ -117,3 +121,27 @@ cd gitlab && docker compose up -d
 
 - Web: http://127.0.0.1:8080 / SSH: ポート 2222
 - マウント先は `${HOME}/srv/gitlab` の `config` / `logs` / `data`
+
+## Redmine の起動と運用
+
+Redmine 6 と PostgreSQL 16 を `docker compose` で動かす。操作は `redmine/redminectl` に
+まとめてあり、手順の全体は `docs/redmine-ops.html` にスライドとしてまとめてある。
+
+```sh
+cd redmine
+./redminectl setup            # 初回: .env 生成 → ~/srv/redmine 作成 → 起動 → HTTP 200 を待つ
+./redminectl status           # コンテナ状態と HTTP 応答
+./redminectl backup           # DB ダンプ + 添付 + .env を ~/srv/redmine-backup/<日時>/ へ (14 世代保持)
+./redminectl schedule-backup  # launchd で毎日 03:00 に backup
+./redminectl restore <dir>    # backup ディレクトリから復元 (DB を作り直す。確認あり)
+./redminectl update           # backup → pull → up (migration は起動時に自動)
+./redminectl plugins          # ~/srv/redmine/plugins に置いたプラグインの migration
+```
+
+- Web: http://127.0.0.1:3000 (初期ユーザー `admin` / `admin`、初回ログインで変更を求められる)
+- `.env` (git 管理外) に DB パスワードと `secret_key_base` を持つ。`setup` が乱数で生成する。
+  `REDMINE_SECRET_KEY_BASE` を変えるとセッションと暗号化済み設定が無効になるため、
+  backup に `env` として同梱している
+- マウント先は `${HOME}/srv/redmine` の `files` (添付) / `plugins` / `themes` / `db` (PostgreSQL)。
+  `.env` の `REDMINE_DATA_DIR` で変更できる
+- バックアップ先・世代数は `REDMINE_BACKUP_DIR` / `REDMINE_BACKUP_KEEP` で変更できる
